@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
-import { Package, ShoppingCart, Users, TrendingUp, AlertTriangle, Plus, Search, ChevronDown, ChevronRight, LogOut, Menu, X, Eye, Edit2, ArrowUpRight, ArrowDownRight, DollarSign, UserPlus, ClipboardList, BarChart3, Hash, Phone, MapPin, Calendar, Truck, FileText, Send, Calculator, Save, ExternalLink, Copy, Check, Zap, Target, Cloud, CloudOff, Wifi, WifiOff, RefreshCw } from "lucide-react";
+import { Package, ShoppingCart, Users, TrendingUp, AlertTriangle, Plus, Search, ChevronDown, ChevronRight, LogOut, Menu, X, Eye, Edit2, Trash2, ArrowUpRight, ArrowDownRight, DollarSign, UserPlus, ClipboardList, BarChart3, Hash, Phone, MapPin, Calendar, Truck, FileText, Send, Calculator, Save, ExternalLink, Copy, Check, Zap, Target, Tag, Cloud, CloudOff, Wifi, WifiOff, RefreshCw } from "lucide-react";
 import { useCloudState } from "./useCloudState";
 
 // ═══════════════════════════════════════════════
@@ -12,6 +12,38 @@ const METODOS_PAGO = ["Yape", "Plin", "Efectivo", "Transferencia"];
 const ESTADOS_VENTA = ["Pendiente", "Pagado", "Enviado", "Entregado", "Cancelado"];
 const CIUDADES_PERU = ["Lima", "Arequipa", "Trujillo", "Chiclayo", "Cusco", "Piura", "Huancayo", "Ica", "Tacna", "Cajamarca", "Callao", "Huánuco", "Puno", "Chimbote", "Ayacucho"];
 const WHATSAPP_NUM = "51934357309";
+
+// Ofertas combo
+const OFERTAS = [
+  { cantidad: 3, precio: 120, label: "3 x S/ 120", ahorro: "Ahorras S/ 29.70" },
+  { cantidad: 2, precio: 90, label: "2 x S/ 90", ahorro: "Ahorras S/ 9.80" },
+];
+
+const calcularTotalConOfertas = (items) => {
+  const totalItems = items.reduce((s, it) => s + it.cantidad, 0);
+  let remaining = totalItems;
+  let total = 0;
+  let ofertaAplicada = null;
+  
+  // Aplicar la mejor oferta posible
+  for (const oferta of OFERTAS) {
+    const sets = Math.floor(remaining / oferta.cantidad);
+    if (sets > 0) {
+      total += sets * oferta.precio;
+      remaining -= sets * oferta.cantidad;
+      if (!ofertaAplicada) ofertaAplicada = { ...oferta, sets };
+    }
+  }
+  // Resto a precio normal
+  if (remaining > 0) {
+    total += remaining * 49.90;
+  }
+  
+  const totalSinOferta = totalItems * 49.90;
+  const descuento = totalSinOferta - total;
+  
+  return { total, totalSinOferta, descuento, ofertaAplicada, totalItems };
+};
 
 const generateId = () => Date.now().toString(36) + Math.random().toString(36).substr(2, 5);
 const formatCurrency = (n) => `S/ ${Number(n || 0).toFixed(2)}`;
@@ -93,18 +125,120 @@ const SyncIndicator = ({ status }) => {
 // WHATSAPP & BOLETA
 // ═══════════════════════════════════════════════
 const generateWhatsAppLink = (venta, clienteTel) => {
-  const items = venta.items.map(it => `• ${it.nombre} (${it.talla}) — ${formatCurrency(it.precio * it.cantidad)}`).join("\n");
-  const msg = `¡Hola! 👋 Soy de *STYLUM* 🖤\n\nTu pedido:\n\n${items}\n\n*Total: ${formatCurrency(venta.total)}*\nPago: ${venta.metodoPago}\n\n¿Confirmamos? 🔥\nwww.stylum.pe`;
+  const items = venta.items.map(it => `• ${it.nombre} (${it.talla}) x${it.cantidad}`).join("\n");
+  const descTxt = venta.descuento > 0 ? `\nOferta aplicada: -${formatCurrency(venta.descuento)} 🔥` : "";
+  const msg = `¡Hola! 👋 Soy de *STYLUM* 🖤\n\nTu pedido:\n\n${items}${descTxt}\n\n*Total: ${formatCurrency(venta.total)}*\nPago: ${venta.metodoPago}\n\n¿Confirmamos? 🔥\nwww.stylum.pe`;
   const tel = clienteTel ? (clienteTel.startsWith("51") ? clienteTel : `51${clienteTel}`) : WHATSAPP_NUM;
   return `https://wa.me/${tel}?text=${encodeURIComponent(msg)}`;
 };
 
 const BoletaModal = ({ venta, onClose }) => {
-  const [copied, setCopied] = useState(false);
   if (!venta) return null;
-  const txt = `═══════════════════════\n      STYLUM\n  Streetwear con actitud\n═══════════════════════\nBoleta: ${venta.id.slice(0,8).toUpperCase()}\nFecha: ${formatDateTime(venta.fecha)}\nCliente: ${venta.cliente}\n───────────────────────\n${venta.items.map(it => `${it.nombre}\n  ${it.talla} x${it.cantidad}    ${formatCurrency(it.precio * it.cantidad)}`).join("\n")}\n───────────────────────\nTOTAL:      ${formatCurrency(venta.total)}\nPago:       ${venta.metodoPago}\nEstado:     ${venta.estado}\n═══════════════════════\n  ¡Gracias por tu compra!\n    www.stylum.pe`;
-  const doCopy = () => { navigator.clipboard.writeText(txt).then(() => { setCopied(true); setTimeout(() => setCopied(false), 2000); }).catch(() => {}); };
-  return (<Modal open={true} onClose={onClose} title="Boleta de Venta"><pre className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 text-xs text-neutral-300 font-mono whitespace-pre-wrap leading-relaxed overflow-x-auto mb-4">{txt}</pre><div className="flex gap-2"><Btn variant="secondary" onClick={doCopy}>{copied ? <Check size={14} /> : <Copy size={14} />}{copied ? "Copiado" : "Copiar"}</Btn><Btn variant="whatsapp" onClick={() => window.open(generateWhatsAppLink(venta, ""), "_blank")}><Send size={14} />WhatsApp</Btn></div></Modal>);
+  
+  const printBoleta = () => {
+    const descuentoHtml = venta.descuento > 0 ? `
+      <tr><td style="padding:8px 0;color:#888;border-top:1px solid #333">Subtotal</td><td style="padding:8px 0;text-align:right;color:#888;border-top:1px solid #333;text-decoration:line-through">${formatCurrency(venta.totalSinOferta || venta.total)}</td></tr>
+      <tr><td style="padding:4px 0;color:#22c55e">Descuento oferta</td><td style="padding:4px 0;text-align:right;color:#22c55e">- ${formatCurrency(venta.descuento)}</td></tr>` : '';
+    
+    const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Boleta STYLUM</title>
+    <style>
+      @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&display=swap');
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:'Syne',sans-serif;background:#000;color:#fff;display:flex;justify-content:center;padding:20px}
+      .boleta{width:380px;background:#0a0a0a;border:1px solid #262626;border-radius:16px;overflow:hidden}
+      .header{padding:32px 24px;text-align:center;border-bottom:1px solid #262626;background:linear-gradient(180deg,#111 0%,#0a0a0a 100%)}
+      .logo{font-size:28px;font-weight:700;letter-spacing:0.3em;margin-bottom:4px}
+      .tagline{font-size:9px;color:#666;letter-spacing:0.4em;text-transform:uppercase}
+      .info{padding:20px 24px;border-bottom:1px solid #1a1a1a}
+      .info-row{display:flex;justify-content:space-between;padding:6px 0;font-size:12px}
+      .info-label{color:#666}
+      .info-value{color:#ccc}
+      .items{padding:20px 24px;border-bottom:1px solid #1a1a1a}
+      .items-title{font-size:9px;color:#666;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:12px}
+      .item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1a1a1a}
+      .item:last-of-type{border:none}
+      .item-name{font-size:13px;color:#fff}
+      .item-detail{font-size:10px;color:#666;margin-top:2px}
+      .item-price{font-size:13px;color:#fff;font-weight:500}
+      .total-section{padding:20px 24px;border-bottom:1px solid #1a1a1a}
+      .total-section table{width:100%}
+      .total-section td{font-size:12px;padding:4px 0}
+      .total-row{border-top:2px solid #333 !important}
+      .total-row td{padding-top:12px !important;font-size:18px !important;font-weight:600 !important}
+      .footer{padding:24px;text-align:center}
+      .footer p{font-size:10px;color:#555;line-height:1.8}
+      .footer .web{color:#888;letter-spacing:0.2em}
+      .badge{display:inline-block;padding:3px 10px;border-radius:4px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;font-weight:500}
+      .badge-pagado{background:#052e16;color:#4ade80;border:1px solid #14532d}
+      .badge-pendiente{background:#422006;color:#fbbf24;border:1px solid #713f12}
+      .badge-enviado{background:#1a1a1a;color:#999;border:1px solid #333}
+      .badge-entregado{background:#052e16;color:#4ade80;border:1px solid #14532d}
+      @media print{body{background:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm}}
+      .print-btn{position:fixed;bottom:20px;right:20px;background:#fff;color:#000;border:none;padding:12px 24px;border-radius:8px;font-family:'Syne';font-size:12px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer}
+      .print-btn:hover{background:#ddd}
+      @media print{.print-btn{display:none}}
+    </style></head><body>
+    <div class="boleta">
+      <div class="header">
+        <div class="logo">STYLUM</div>
+        <div class="tagline">Streetwear con actitud · Lima, Perú</div>
+      </div>
+      <div class="info">
+        <div class="info-row"><span class="info-label">Boleta Nº</span><span class="info-value">${venta.id.slice(0,8).toUpperCase()}</span></div>
+        <div class="info-row"><span class="info-label">Fecha</span><span class="info-value">${formatDateTime(venta.fecha)}</span></div>
+        <div class="info-row"><span class="info-label">Cliente</span><span class="info-value">${venta.cliente}</span></div>
+        <div class="info-row"><span class="info-label">Método de pago</span><span class="info-value">${venta.metodoPago}</span></div>
+        <div class="info-row"><span class="info-label">Estado</span><span class="info-value"><span class="badge badge-${venta.estado.toLowerCase()}">${venta.estado}</span></span></div>
+      </div>
+      <div class="items">
+        <div class="items-title">Detalle del pedido</div>
+        ${venta.items.map(it => `<div class="item"><div><div class="item-name">${it.nombre}</div><div class="item-detail">Talla ${it.talla} · ${it.color} · x${it.cantidad}</div></div><div class="item-price">${formatCurrency(it.precio * it.cantidad)}</div></div>`).join('')}
+      </div>
+      <div class="total-section">
+        <table>
+          ${descuentoHtml}
+          <tr class="total-row"><td style="padding:12px 0;border-top:2px solid #333;font-size:16px;font-weight:600">TOTAL</td><td style="padding:12px 0;text-align:right;border-top:2px solid #333;font-size:20px;font-weight:600">${formatCurrency(venta.total)}</td></tr>
+        </table>
+      </div>
+      <div class="footer">
+        <p class="web">www.stylum.pe</p>
+        <p style="margin-top:8px">¡Gracias por tu compra! 🖤</p>
+        <p style="margin-top:4px">@stylum.oficial · +51 934 357 309</p>
+      </div>
+    </div>
+    <button class="print-btn" onclick="window.print()">Guardar PDF / Imprimir</button>
+    </body></html>`;
+    
+    const w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
+  };
+
+  return (
+    <Modal open={true} onClose={onClose} title="Boleta de Venta">
+      <div className="space-y-4">
+        {/* Preview */}
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5 space-y-3">
+          <div className="text-center mb-3"><p className="text-lg font-bold tracking-[0.3em]">STYLUM</p><p className="text-[9px] text-neutral-600 uppercase tracking-[0.3em]">Boleta Nº {venta.id.slice(0,8).toUpperCase()}</p></div>
+          <div className="space-y-1 text-xs">
+            <div className="flex justify-between"><span className="text-neutral-500">Cliente</span><span className="text-white">{venta.cliente}</span></div>
+            <div className="flex justify-between"><span className="text-neutral-500">Fecha</span><span className="text-white">{formatDateTime(venta.fecha)}</span></div>
+            <div className="flex justify-between"><span className="text-neutral-500">Pago</span><span className="text-white">{venta.metodoPago}</span></div>
+          </div>
+          <div className="border-t border-neutral-800 pt-3 space-y-2">
+            {venta.items.map((it, i) => <div key={i} className="flex justify-between text-xs"><span className="text-neutral-300">{it.nombre} · {it.talla} x{it.cantidad}</span><span className="text-white">{formatCurrency(it.precio * it.cantidad)}</span></div>)}
+          </div>
+          {venta.descuento > 0 && <div className="flex justify-between text-xs pt-2 border-t border-neutral-800"><span className="text-emerald-400">Descuento oferta</span><span className="text-emerald-400">- {formatCurrency(venta.descuento)}</span></div>}
+          <div className="flex justify-between pt-2 border-t border-neutral-700"><span className="text-sm text-neutral-400">TOTAL</span><span className="text-lg font-medium text-white">{formatCurrency(venta.total)}</span></div>
+        </div>
+        <div className="flex gap-2">
+          <Btn onClick={printBoleta}><FileText size={14} />Abrir PDF</Btn>
+          <Btn variant="whatsapp" onClick={() => window.open(generateWhatsAppLink(venta, ""), "_blank")}><Send size={14} />WhatsApp</Btn>
+        </div>
+        <p className="text-xs text-neutral-600 text-center">Al abrir el PDF, usa "Guardar como PDF" en la ventana de impresión</p>
+      </div>
+    </Modal>
+  );
 };
 
 // ═══════════════════════════════════════════════
@@ -138,6 +272,11 @@ const Dashboard = ({ ventas, productos, clientes, compras }) => {
       <div><h2 className="text-2xl font-light tracking-tight text-white">Dashboard</h2><p className="text-xs text-neutral-500 mt-1 uppercase tracking-widest">{today.toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p></div>
 
       {noData && <div className="bg-neutral-900 border border-dashed border-neutral-700 rounded-xl p-6 flex items-start gap-4"><div className="w-10 h-10 rounded-xl bg-neutral-800 flex items-center justify-center flex-shrink-0"><Zap size={20} className="text-amber-400" /></div><div><p className="text-sm text-white font-medium mb-1">¡Bienvenido a STYLUM CRM!</p><p className="text-xs text-neutral-400 leading-relaxed">Tu sistema está listo. Empieza registrando tu <strong>stock actual</strong> en Inventario. Tus datos se sincronizan en la nube automáticamente. 🔥</p></div></div>}
+
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+        <div className="flex items-center gap-3"><Tag size={16} className="text-emerald-400" /><span className="text-sm text-neutral-300">Ofertas activas:</span></div>
+        <div className="flex gap-3">{OFERTAS.map(o => <span key={o.cantidad} className="text-xs bg-emerald-950/50 text-emerald-400 border border-emerald-900 px-3 py-1 rounded-lg">{o.label}</span>)}</div>
+      </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         <StatCard icon={DollarSign} label="Ventas Hoy" value={formatCurrency(ih)} sub={`${vh.length} órdenes`} />
@@ -196,14 +335,14 @@ const VentasModule = ({ ventas, setVentas, productos, setProductos, clientes, se
     if (modoCliente === "nuevo" && form.clienteNuevo) { const nc = { id: generateId(), nombre: form.clienteNuevo, telefono: form.telefonoNuevo, ciudad: form.ciudadNuevo, instagram: "", tipo: "Nuevo", totalCompras: 0, totalGastado: 0, fechaRegistro: new Date().toISOString() }; setClientes(p => [nc, ...p]); cId = nc.id; cNombre = nc.nombre; cTel = nc.telefono; }
     else { const cl = clientes.find(c => c.id === form.clienteId); if (!cl) return; cId = cl.id; cNombre = cl.nombre; cTel = cl.telefono; }
     if (form.items.length === 0) return;
-    const total = form.items.reduce((s, it) => s + it.precio * it.cantidad, 0);
-    const nv = { id: generateId(), clienteId: cId, cliente: cNombre, items: form.items, total, estado: "Pendiente", metodoPago: form.metodoPago, fecha: new Date().toISOString(), notas: form.notas };
+    const calc = calcularTotalConOfertas(form.items);
+    const nv = { id: generateId(), clienteId: cId, cliente: cNombre, items: form.items, total: calc.total, totalSinOferta: calc.totalSinOferta, descuento: calc.descuento, estado: "Pendiente", metodoPago: form.metodoPago, fecha: new Date().toISOString(), notas: form.notas };
     setVentas(p => [nv, ...p]);
     const np = JSON.parse(JSON.stringify(productos));
     form.items.forEach(it => { const pi = np.findIndex(p => p.id === it.productoId); if (pi >= 0) { const vi = np[pi].variantes.findIndex(v => v.talla === it.talla && v.color === it.color); if (vi >= 0) np[pi].variantes[vi].stock = Math.max(0, np[pi].variantes[vi].stock - it.cantidad); } });
     setProductos(np);
     form.items.forEach(it => { setKardex(p => [{ id: generateId(), tipo: "Salida", producto: it.nombre, cantidad: it.cantidad, fecha: new Date().toISOString(), referencia: `Venta ${nv.id.slice(0,6)}`, nota: `${cNombre} — ${it.talla}` }, ...p]); });
-    setClientes(p => p.map(c => c.id === cId ? { ...c, totalCompras: c.totalCompras + 1, totalGastado: c.totalGastado + total } : c));
+    setClientes(p => p.map(c => c.id === cId ? { ...c, totalCompras: c.totalCompras + 1, totalGastado: c.totalGastado + calc.total } : c));
     setForm({ clienteId: "", clienteNuevo: "", telefonoNuevo: "", ciudadNuevo: "Lima", items: [], metodoPago: "Yape", notas: "" }); setShowModal(false); setToast("¡Venta registrada!");
     setTimeout(() => window.open(generateWhatsAppLink(nv, cTel), "_blank"), 500);
   };
@@ -218,14 +357,23 @@ const VentasModule = ({ ventas, setVentas, productos, setProductos, clientes, se
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"><div><h2 className="text-2xl font-light tracking-tight text-white">Ventas</h2><p className="text-xs text-neutral-500 uppercase tracking-widest mt-1">{ventas.length} registros</p></div><Btn onClick={() => setShowModal(true)}><Plus size={14} /> Nueva Venta</Btn></div>
       <div className="flex flex-col sm:flex-row gap-3"><div className="flex-1"><SearchBar value={search} onChange={setSearch} placeholder="Buscar cliente..." /></div><Select value={filtro} onChange={e => setFiltro(e.target.value)} options={["Todos", ...ESTADOS_VENTA]} /></div>
       {ventas.length === 0 ? <EmptyState icon={ShoppingCart} title="Sin ventas aún" sub="Registra tu primera venta" action={() => setShowModal(true)} actionLabel="Nueva Venta" /> :
-      <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-neutral-800">{["Cliente","Productos","Total","Estado","Pago","Fecha",""].map(h=><th key={h} className="text-left px-4 py-3 text-xs text-neutral-500 uppercase tracking-widest font-medium">{h}</th>)}</tr></thead><tbody>{filtered.map(v=>(<tr key={v.id} className="border-b border-neutral-800/50 hover:bg-neutral-800/30 transition-colors"><td className="px-4 py-3 text-white">{v.cliente}</td><td className="px-4 py-3 text-neutral-400 text-xs">{v.items.map(i=>i.nombre.replace("BOXYFIT ","")).join(", ")}</td><td className="px-4 py-3 text-white font-medium">{formatCurrency(v.total)}</td><td className="px-4 py-3">{estadoBadge(v.estado)}</td><td className="px-4 py-3 text-neutral-400">{v.metodoPago}</td><td className="px-4 py-3 text-neutral-500 text-xs">{formatDateTime(v.fecha)}</td><td className="px-4 py-3"><div className="flex gap-1"><button onClick={()=>setShowDetalle(v)} className="p-1.5 text-neutral-500 hover:text-white"><Eye size={14}/></button><button onClick={()=>setShowBoleta(v)} className="p-1.5 text-neutral-500 hover:text-white"><FileText size={14}/></button><button onClick={()=>window.open(generateWhatsAppLink(v,clientes.find(c=>c.id===v.clienteId)?.telefono||""),"_blank")} className="p-1.5 text-neutral-500 hover:text-emerald-400"><Send size={14}/></button></div></td></tr>))}</tbody></table></div></div>}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden"><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-neutral-800">{["Cliente","Productos","Total","Estado","Pago","Fecha",""].map(h=><th key={h} className="text-left px-4 py-3 text-xs text-neutral-500 uppercase tracking-widest font-medium">{h}</th>)}</tr></thead><tbody>{filtered.map(v=>(<tr key={v.id} className="border-b border-neutral-800/50 hover:bg-neutral-800/30 transition-colors"><td className="px-4 py-3 text-white">{v.cliente}</td><td className="px-4 py-3 text-neutral-400 text-xs">{v.items.map(i=>i.nombre.replace("BOXYFIT ","")).join(", ")}</td><td className="px-4 py-3 text-white font-medium">{formatCurrency(v.total)}{v.descuento > 0 && <span className="ml-1 text-emerald-400 text-xs">-{formatCurrency(v.descuento)}</span>}</td><td className="px-4 py-3">{estadoBadge(v.estado)}</td><td className="px-4 py-3 text-neutral-400">{v.metodoPago}</td><td className="px-4 py-3 text-neutral-500 text-xs">{formatDateTime(v.fecha)}</td><td className="px-4 py-3"><div className="flex gap-1"><button onClick={()=>setShowDetalle(v)} className="p-1.5 text-neutral-500 hover:text-white"><Eye size={14}/></button><button onClick={()=>setShowBoleta(v)} className="p-1.5 text-neutral-500 hover:text-white"><FileText size={14}/></button><button onClick={()=>window.open(generateWhatsAppLink(v,clientes.find(c=>c.id===v.clienteId)?.telefono||""),"_blank")} className="p-1.5 text-neutral-500 hover:text-emerald-400"><Send size={14}/></button></div></td></tr>))}</tbody></table></div></div>}
 
       <Modal open={showModal} onClose={()=>setShowModal(false)} title="Nueva Venta" wide><div className="space-y-4">
         <div className="flex gap-2 mb-1">{["existente","nuevo"].map(m=><button key={m} onClick={()=>setModoCliente(m)} className={`px-3 py-1.5 rounded-lg text-xs uppercase tracking-widest transition-all ${modoCliente===m?"bg-white text-black":"bg-neutral-800 text-neutral-400"}`}>{m==="existente"?"Cliente existente":"Nuevo cliente"}</button>)}</div>
         {modoCliente==="existente"?<Select label="Cliente" value={form.clienteId} onChange={e=>setForm({...form,clienteId:e.target.value})} options={[{value:"",label:"Seleccionar..."},...clientes.map(c=>({value:c.id,label:`${c.nombre} — ${c.ciudad}`}))]}/>:<div className="grid grid-cols-1 sm:grid-cols-3 gap-3"><Input label="Nombre" value={form.clienteNuevo} onChange={e=>setForm({...form,clienteNuevo:e.target.value})}/><Input label="Teléfono" value={form.telefonoNuevo} onChange={e=>setForm({...form,telefonoNuevo:e.target.value})} placeholder="9XXXXXXXX"/><Select label="Ciudad" value={form.ciudadNuevo} onChange={e=>setForm({...form,ciudadNuevo:e.target.value})} options={CIUDADES_PERU}/></div>}
         <div className="border border-neutral-800 rounded-lg p-4 space-y-3"><p className="text-xs text-neutral-500 uppercase tracking-widest">Productos</p><div className="grid grid-cols-2 sm:grid-cols-4 gap-3"><Select label="Producto" value={itemForm.productoId} onChange={e=>setItemForm({...itemForm,productoId:e.target.value,talla:"",color:""})} options={[{value:"",label:"Elegir..."},...productos.map(p=>({value:p.id,label:`${p.imagen} ${p.nombre}`}))]}/><Select label="Talla" value={itemForm.talla} onChange={e=>setItemForm({...itemForm,talla:e.target.value,color:""})} options={[{value:"",label:"—"},...at.map(t=>({value:t,label:t}))]}/><Select label="Color" value={itemForm.color} onChange={e=>setItemForm({...itemForm,color:e.target.value})} options={[{value:"",label:"—"},...ac.map(c=>({value:c,label:c}))]}/><div className="flex items-end"><Btn variant="secondary" onClick={addItem}><Plus size={14}/></Btn></div></div>
           {sp&&itemForm.talla&&itemForm.color&&(()=>{const vr=sp.variantes.find(v=>v.talla===itemForm.talla&&v.color===itemForm.color);return vr?<p className="text-xs text-neutral-500">Stock: <span className={vr.stock<=3?"text-amber-400":"text-emerald-400"}>{vr.stock}</span></p>:null;})()}
-          {form.items.length>0&&<div className="mt-3 space-y-2">{form.items.map((it,i)=><div key={i} className="flex items-center justify-between bg-neutral-800 rounded-lg px-3 py-2 text-sm"><span className="text-neutral-300">{it.nombre} — {it.talla}</span><div className="flex items-center gap-3"><span className="text-white">{formatCurrency(it.precio)}</span><button onClick={()=>setForm(f=>({...f,items:f.items.filter((_,j)=>j!==i)}))} className="text-neutral-500 hover:text-red-400"><X size={14}/></button></div></div>)}<div className="flex justify-end pt-2 border-t border-neutral-700"><span className="text-white font-medium text-lg">{formatCurrency(form.items.reduce((s,it)=>s+it.precio*it.cantidad,0))}</span></div></div>}
+          {form.items.length>0&&<div className="mt-3 space-y-2">{form.items.map((it,i)=><div key={i} className="flex items-center justify-between bg-neutral-800 rounded-lg px-3 py-2 text-sm"><span className="text-neutral-300">{it.nombre} — {it.talla}</span><div className="flex items-center gap-3"><span className="text-white">{formatCurrency(it.precio)}</span><button onClick={()=>setForm(f=>({...f,items:f.items.filter((_,j)=>j!==i)}))} className="text-neutral-500 hover:text-red-400"><X size={14}/></button></div></div>)}
+            {(() => { const calc = calcularTotalConOfertas(form.items); return (<div className="pt-3 border-t border-neutral-700 space-y-2">
+              {calc.descuento > 0 && <div className="flex justify-between text-xs"><span className="text-neutral-500">Subtotal ({calc.totalItems} polos)</span><span className="text-neutral-500 line-through">{formatCurrency(calc.totalSinOferta)}</span></div>}
+              {calc.descuento > 0 && <div className="flex justify-between text-xs"><span className="text-emerald-400">🔥 Oferta aplicada</span><span className="text-emerald-400">- {formatCurrency(calc.descuento)}</span></div>}
+              <div className="flex justify-between items-center"><span className="text-sm text-neutral-400">Total</span><span className="text-white font-medium text-lg">{formatCurrency(calc.total)}</span></div>
+              {calc.totalItems === 1 && <p className="text-xs text-amber-400/80 text-center">💡 Agrega 1 polo más y aplica precio 2 x S/ 90</p>}
+              {calc.totalItems === 2 && calc.descuento > 0 && <p className="text-xs text-emerald-400/80 text-center">✅ Oferta 2 x S/ 90 aplicada · Agrega 1 más para 3 x S/ 120</p>}
+              {calc.totalItems >= 3 && calc.descuento > 0 && <p className="text-xs text-emerald-400/80 text-center">✅ Oferta 3 x S/ 120 aplicada</p>}
+            </div>); })()}
+          </div>}
         </div>
         <div className="grid grid-cols-2 gap-3"><Select label="Método de Pago" value={form.metodoPago} onChange={e=>setForm({...form,metodoPago:e.target.value})} options={METODOS_PAGO}/><Input label="Notas" value={form.notas} onChange={e=>setForm({...form,notas:e.target.value})} placeholder="Opcional..."/></div>
         <div className="bg-neutral-800/50 rounded-lg p-3 flex items-center gap-2 text-xs text-neutral-400"><Send size={14} className="text-emerald-400 flex-shrink-0"/>Se abrirá WhatsApp para enviar resumen al cliente</div>
@@ -236,6 +384,7 @@ const VentasModule = ({ ventas, setVentas, productos, setProductos, clientes, se
         <div className="grid grid-cols-2 gap-4 text-sm">{[["Cliente",showDetalle.cliente],["Fecha",formatDateTime(showDetalle.fecha)],["Pago",showDetalle.metodoPago]].map(([l,v])=><div key={l}><span className="text-neutral-500">{l}:</span><span className="text-white ml-2">{v}</span></div>)}<div><span className="text-neutral-500">Estado:</span><span className="ml-2">{estadoBadge(showDetalle.estado)}</span></div></div>
         <div className="border border-neutral-800 rounded-lg overflow-hidden"><table className="w-full text-sm"><thead><tr className="border-b border-neutral-800">{["Producto","Talla","Color","Precio"].map(h=><th key={h} className="text-left px-4 py-2 text-xs text-neutral-500 uppercase tracking-widest">{h}</th>)}</tr></thead><tbody>{showDetalle.items.map((it,i)=><tr key={i} className="border-b border-neutral-800/50"><td className="px-4 py-2 text-white">{it.nombre}</td><td className="px-4 py-2 text-neutral-400">{it.talla}</td><td className="px-4 py-2 text-neutral-400">{it.color}</td><td className="px-4 py-2 text-white">{formatCurrency(it.precio)}</td></tr>)}</tbody></table></div>
         <div className="flex justify-between items-center"><span className="text-neutral-500">Total</span><span className="text-xl font-light text-white">{formatCurrency(showDetalle.total)}</span></div>
+        {showDetalle.descuento > 0 && <div className="flex justify-between items-center text-xs"><span className="text-emerald-400">🔥 Oferta aplicada</span><span className="text-emerald-400">Ahorraste {formatCurrency(showDetalle.descuento)}</span></div>}
         <div className="flex flex-wrap gap-2 pt-3 border-t border-neutral-800"><p className="text-xs text-neutral-500 uppercase tracking-widest w-full mb-1">Cambiar estado:</p>{ESTADOS_VENTA.filter(e=>e!==showDetalle.estado).map(e=><Btn key={e} variant="secondary" size="sm" onClick={()=>{cambiarEstado(showDetalle.id,e);setShowDetalle({...showDetalle,estado:e});setToast(`Estado → ${e}`);}}>{e}</Btn>)}</div>
         <div className="flex gap-2 pt-3 border-t border-neutral-800"><Btn variant="secondary" size="sm" onClick={()=>{setShowDetalle(null);setShowBoleta(showDetalle);}}><FileText size={14}/>Boleta</Btn><Btn variant="whatsapp" size="sm" onClick={()=>window.open(generateWhatsAppLink(showDetalle,clientes.find(c=>c.id===showDetalle.clienteId)?.telefono||""),"_blank")}><Send size={14}/>WhatsApp</Btn></div>
       </div>}</Modal>
@@ -272,7 +421,7 @@ const InventarioModule = ({ productos, setProductos, kardex, setKardex }) => {
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"><div><h2 className="text-2xl font-light tracking-tight text-white">Inventario</h2><p className="text-xs text-neutral-500 uppercase tracking-widest mt-1">{productos.length} productos · {productos.reduce((s, p) => s + p.variantes.reduce((ss, v) => ss + v.stock, 0), 0)} uds</p></div><div className="flex gap-2"><Btn variant="secondary" onClick={() => setShowKardex(true)}><ClipboardList size={14} /> Kardex</Btn><Btn onClick={() => setShowModal(true)}><Plus size={14} /> Nuevo</Btn></div></div>
       <div className="space-y-3">{productos.map(p => { const ts = p.variantes.reduce((s, v) => s + v.stock, 0); return (<div key={p.id} className="bg-neutral-900 border border-neutral-800 rounded-xl overflow-hidden hover:border-neutral-700 transition-colors"><div className="flex items-center justify-between p-4 cursor-pointer" onClick={() => setExpandedId(expandedId === p.id ? null : p.id)}><div className="flex items-center gap-4"><span className="text-2xl">{p.imagen}</span><div><p className="text-sm text-white font-medium">{p.nombre}</p><p className="text-xs text-neutral-500">{p.sku}</p></div></div><div className="flex items-center gap-4"><div className="text-right hidden sm:block"><p className="text-sm text-white">{formatCurrency(p.precio)}</p><p className="text-xs text-neutral-500">Costo: {formatCurrency(p.costo)}</p></div><p className={`text-sm font-medium ${ts === 0 ? "text-red-400" : ts <= 5 ? "text-amber-400" : "text-white"}`}>{ts} uds</p><ChevronDown size={16} className={`text-neutral-500 transition-transform ${expandedId === p.id ? "rotate-180" : ""}`} /></div></div>
-        {expandedId === p.id && <div className="border-t border-neutral-800 p-4"><div className="grid grid-cols-3 gap-2 mb-3">{p.variantes.map((v, i) => <div key={i} className={`rounded-lg p-3 text-center ${v.stock === 0 ? "bg-red-950/30 border border-red-900/40" : v.stock <= 3 ? "bg-amber-950/30 border border-amber-900/40" : "bg-neutral-800 border border-neutral-700"}`}><p className="text-xs text-neutral-400">{v.talla} / {v.color}</p><p className={`text-lg font-light mt-1 ${v.stock === 0 ? "text-red-400" : v.stock <= 3 ? "text-amber-400" : "text-white"}`}>{v.stock}</p></div>)}</div><div className="flex items-center justify-between pt-3 border-t border-neutral-800"><span className="text-xs text-neutral-500">Margen: {formatCurrency(p.precio - p.costo)} ({((p.precio - p.costo) / p.precio * 100).toFixed(0)}%)</span><Btn variant="secondary" size="sm" onClick={e => { e.stopPropagation(); openStockModal(p); }}><Edit2 size={12} /> Editar Stock</Btn></div></div>}
+        {expandedId === p.id && <div className="border-t border-neutral-800 p-4"><div className="grid grid-cols-3 gap-2 mb-3">{p.variantes.map((v, i) => <div key={i} className={`rounded-lg p-3 text-center ${v.stock === 0 ? "bg-red-950/30 border border-red-900/40" : v.stock <= 3 ? "bg-amber-950/30 border border-amber-900/40" : "bg-neutral-800 border border-neutral-700"}`}><p className="text-xs text-neutral-400">{v.talla} / {v.color}</p><p className={`text-lg font-light mt-1 ${v.stock === 0 ? "text-red-400" : v.stock <= 3 ? "text-amber-400" : "text-white"}`}>{v.stock}</p></div>)}</div><div className="flex items-center justify-between pt-3 border-t border-neutral-800"><span className="text-xs text-neutral-500">Margen: {formatCurrency(p.precio - p.costo)} ({((p.precio - p.costo) / p.precio * 100).toFixed(0)}%)</span><div className="flex gap-2"><Btn variant="danger" size="sm" onClick={e => { e.stopPropagation(); if(confirm(`¿Eliminar "${p.nombre}"? Esta acción no se puede deshacer.`)) { setProductos(prev => prev.filter(pr => pr.id !== p.id)); setToast("Producto eliminado"); } }}><Trash2 size={12} /> Eliminar</Btn><Btn variant="secondary" size="sm" onClick={e => { e.stopPropagation(); openStockModal(p); }}><Edit2 size={12} /> Editar Stock</Btn></div></div></div>}
       </div>); })}</div>
 
       <Modal open={!!showStock} onClose={() => setShowStock(null)} title={`Stock — ${showStock?.nombre || ""}`}>{showStock && <div className="space-y-4"><p className="text-xs text-neutral-500">Ingresa stock actual. Se sincroniza automáticamente en la nube.</p><div className="space-y-3">{showStock.variantes.map((v, i) => <div key={i} className="flex items-center justify-between bg-neutral-800 rounded-lg px-4 py-3"><span className="text-sm text-neutral-300">{v.talla} / {v.color}</span><div className="flex items-center gap-2"><span className="text-xs text-neutral-600">Actual: {v.stock}</span><input type="number" min="0" value={stockEdit[i] ?? v.stock} onChange={e => setStockEdit({ ...stockEdit, [i]: e.target.value })} className="w-20 bg-neutral-900 border border-neutral-700 rounded-lg px-3 py-1.5 text-sm text-white text-center focus:outline-none focus:border-white" /></div></div>)}</div><div className="flex justify-end gap-3 pt-3 border-t border-neutral-800"><Btn variant="secondary" onClick={() => setShowStock(null)}>Cancelar</Btn><Btn onClick={guardarStock}><Save size={14} /> Guardar</Btn></div></div>}</Modal>
