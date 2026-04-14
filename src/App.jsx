@@ -10,13 +10,14 @@ const TALLAS = ["S", "M", "L"];
 const COLORES_POLO = ["Verde Botella", "Blanco y Negro", "Guinda"];
 const METODOS_PAGO = ["Yape", "Plin", "Efectivo", "Transferencia"];
 const ESTADOS_VENTA = ["Pendiente", "Pagado", "Enviado", "Entregado", "Cancelado"];
+const ESTADOS_COBRADOS = ["Pagado", "Enviado", "Entregado"]; // Solo estos cuentan como ingreso real
 const CIUDADES_PERU = ["Lima", "Arequipa", "Trujillo", "Chiclayo", "Cusco", "Piura", "Huancayo", "Ica", "Tacna", "Cajamarca", "Callao", "Huánuco", "Puno", "Chimbote", "Ayacucho"];
 const WHATSAPP_NUM = "51934357309";
 
 // Ofertas combo
 const OFERTAS = [
-  { cantidad: 3, precio: 120, label: "3 x S/ 120", ahorro: "Ahorras S/ 29.70" },
-  { cantidad: 2, precio: 90, label: "2 x S/ 90", ahorro: "Ahorras S/ 9.80" },
+  { cantidad: 3, precio: 120, label: "3 x S/ 120", ahorro: "Ahorras S/ 30" },
+  { cantidad: 2, precio: 90, label: "2 x S/ 90", ahorro: "Ahorras S/ 10" },
 ];
 
 const calcularTotalConOfertas = (items) => {
@@ -25,7 +26,6 @@ const calcularTotalConOfertas = (items) => {
   let total = 0;
   let ofertaAplicada = null;
   
-  // Aplicar la mejor oferta posible
   for (const oferta of OFERTAS) {
     const sets = Math.floor(remaining / oferta.cantidad);
     if (sets > 0) {
@@ -34,12 +34,11 @@ const calcularTotalConOfertas = (items) => {
       if (!ofertaAplicada) ofertaAplicada = { ...oferta, sets };
     }
   }
-  // Resto a precio normal
   if (remaining > 0) {
-    total += remaining * 49.90;
+    total += remaining * 50;
   }
   
-  const totalSinOferta = totalItems * 49.90;
+  const totalSinOferta = totalItems * 50;
   const descuento = totalSinOferta - total;
   
   return { total, totalSinOferta, descuento, ofertaAplicada, totalItems };
@@ -54,9 +53,9 @@ const isSameDay = (d1, d2) => new Date(d1).toDateString() === new Date(d2).toDat
 const withinDays = (d, n) => (today - new Date(d)) / 86400000 <= n;
 
 const DEFAULT_PRODUCTOS = [
-  { id: "p1", nombre: "BOXYFIT Stylum Green", categoria: "BOXYFIT", precio: 49.90, costo: 18, sku: "STY-BF-GREEN", imagen: "💚", variantes: [{ talla: "S", color: "Verde Botella", stock: 0 }, { talla: "M", color: "Verde Botella", stock: 0 }, { talla: "L", color: "Verde Botella", stock: 0 }] },
-  { id: "p2", nombre: "BOXYFIT White & Black", categoria: "BOXYFIT", precio: 49.90, costo: 18, sku: "STY-BF-WB", imagen: "🤍", variantes: [{ talla: "S", color: "Blanco y Negro", stock: 0 }, { talla: "M", color: "Blanco y Negro", stock: 0 }, { talla: "L", color: "Blanco y Negro", stock: 0 }] },
-  { id: "p3", nombre: "BOXYFIT Stone Guinda", categoria: "BOXYFIT", precio: 49.90, costo: 18, sku: "STY-BF-GUINDA", imagen: "❤️", variantes: [{ talla: "S", color: "Guinda", stock: 0 }, { talla: "M", color: "Guinda", stock: 0 }, { talla: "L", color: "Guinda", stock: 0 }] },
+  { id: "p1", nombre: "BOXYFIT Stylum Green", categoria: "BOXYFIT", precio: 50, costo: 18, sku: "STY-BF-GREEN", imagen: "💚", variantes: [{ talla: "S", color: "Verde Botella", stock: 0 }, { talla: "M", color: "Verde Botella", stock: 0 }, { talla: "L", color: "Verde Botella", stock: 0 }] },
+  { id: "p2", nombre: "BOXYFIT White & Black", categoria: "BOXYFIT", precio: 50, costo: 18, sku: "STY-BF-WB", imagen: "🤍", variantes: [{ talla: "S", color: "Blanco y Negro", stock: 0 }, { talla: "M", color: "Blanco y Negro", stock: 0 }, { talla: "L", color: "Blanco y Negro", stock: 0 }] },
+  { id: "p3", nombre: "BOXYFIT Stone Guinda", categoria: "BOXYFIT", precio: 50, costo: 18, sku: "STY-BF-GUINDA", imagen: "❤️", variantes: [{ talla: "S", color: "Guinda", stock: 0 }, { talla: "M", color: "Guinda", stock: 0 }, { talla: "L", color: "Guinda", stock: 0 }] },
 ];
 
 // ═══════════════════════════════════════════════
@@ -137,46 +136,40 @@ const BoletaModal = ({ venta, onClose }) => {
   
   const printBoleta = () => {
     const descuentoHtml = venta.descuento > 0 ? `
-      <tr><td style="padding:8px 0;color:#888;border-top:1px solid #333">Subtotal</td><td style="padding:8px 0;text-align:right;color:#888;border-top:1px solid #333;text-decoration:line-through">${formatCurrency(venta.totalSinOferta || venta.total)}</td></tr>
-      <tr><td style="padding:4px 0;color:#22c55e">Descuento oferta</td><td style="padding:4px 0;text-align:right;color:#22c55e">- ${formatCurrency(venta.descuento)}</td></tr>` : '';
+      <tr><td style="padding:8px 0;color:#999;border-top:1px solid #eee">Subtotal</td><td style="padding:8px 0;text-align:right;color:#999;border-top:1px solid #eee;text-decoration:line-through">${formatCurrency(venta.totalSinOferta || venta.total)}</td></tr>
+      <tr class="discount"><td style="padding:4px 0">Descuento oferta</td><td style="padding:4px 0;text-align:right">- ${formatCurrency(venta.descuento)}</td></tr>` : '';
     
     const html = `<!DOCTYPE html><html><head><meta charset="utf-8"><title>Boleta STYLUM</title>
     <style>
       @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700&display=swap');
       *{margin:0;padding:0;box-sizing:border-box}
-      body{font-family:'Syne',sans-serif;background:#000;color:#fff;display:flex;justify-content:center;padding:20px}
-      .boleta{width:380px;background:#0a0a0a;border:1px solid #262626;border-radius:16px;overflow:hidden}
-      .header{padding:32px 24px;text-align:center;border-bottom:1px solid #262626;background:linear-gradient(180deg,#111 0%,#0a0a0a 100%)}
-      .logo{font-size:28px;font-weight:700;letter-spacing:0.3em;margin-bottom:4px}
-      .tagline{font-size:9px;color:#666;letter-spacing:0.4em;text-transform:uppercase}
-      .info{padding:20px 24px;border-bottom:1px solid #1a1a1a}
-      .info-row{display:flex;justify-content:space-between;padding:6px 0;font-size:12px}
-      .info-label{color:#666}
-      .info-value{color:#ccc}
-      .items{padding:20px 24px;border-bottom:1px solid #1a1a1a}
-      .items-title{font-size:9px;color:#666;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:12px}
-      .item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #1a1a1a}
+      body{font-family:'Syne',sans-serif;background:#f5f5f5;color:#111;display:flex;justify-content:center;padding:20px}
+      .boleta{width:380px;background:#fff;border:1px solid #e0e0e0;border-radius:12px;overflow:hidden;box-shadow:0 2px 12px rgba(0,0,0,0.08)}
+      .header{padding:32px 24px 24px;text-align:center;border-bottom:1px solid #eee}
+      .logo{font-size:28px;font-weight:700;letter-spacing:0.3em;color:#000;margin-bottom:4px}
+      .tagline{font-size:9px;color:#999;letter-spacing:0.4em;text-transform:uppercase}
+      .info{padding:20px 24px;border-bottom:1px solid #eee}
+      .info-row{display:flex;justify-content:space-between;padding:5px 0;font-size:12px}
+      .info-label{color:#999}
+      .info-value{color:#333;font-weight:500}
+      .items{padding:20px 24px;border-bottom:1px solid #eee}
+      .items-title{font-size:9px;color:#999;letter-spacing:0.3em;text-transform:uppercase;margin-bottom:12px}
+      .item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid #f0f0f0}
       .item:last-of-type{border:none}
-      .item-name{font-size:13px;color:#fff}
-      .item-detail{font-size:10px;color:#666;margin-top:2px}
-      .item-price{font-size:13px;color:#fff;font-weight:500}
-      .total-section{padding:20px 24px;border-bottom:1px solid #1a1a1a}
+      .item-name{font-size:13px;color:#111;font-weight:500}
+      .item-detail{font-size:10px;color:#999;margin-top:2px}
+      .item-price{font-size:13px;color:#111;font-weight:600}
+      .total-section{padding:20px 24px;border-bottom:1px solid #eee}
       .total-section table{width:100%}
-      .total-section td{font-size:12px;padding:4px 0}
-      .total-row{border-top:2px solid #333 !important}
-      .total-row td{padding-top:12px !important;font-size:18px !important;font-weight:600 !important}
+      .total-section td{font-size:12px;padding:4px 0;color:#666}
+      .total-row td{padding-top:12px !important;font-size:18px !important;font-weight:700 !important;color:#000 !important;border-top:2px solid #111}
+      .discount td{color:#16a34a !important}
       .footer{padding:24px;text-align:center}
-      .footer p{font-size:10px;color:#555;line-height:1.8}
-      .footer .web{color:#888;letter-spacing:0.2em}
-      .badge{display:inline-block;padding:3px 10px;border-radius:4px;font-size:10px;letter-spacing:0.1em;text-transform:uppercase;font-weight:500}
-      .badge-pagado{background:#052e16;color:#4ade80;border:1px solid #14532d}
-      .badge-pendiente{background:#422006;color:#fbbf24;border:1px solid #713f12}
-      .badge-enviado{background:#1a1a1a;color:#999;border:1px solid #333}
-      .badge-entregado{background:#052e16;color:#4ade80;border:1px solid #14532d}
-      @media print{body{background:#000;-webkit-print-color-adjust:exact;print-color-adjust:exact}@page{margin:10mm}}
-      .print-btn{position:fixed;bottom:20px;right:20px;background:#fff;color:#000;border:none;padding:12px 24px;border-radius:8px;font-family:'Syne';font-size:12px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer}
-      .print-btn:hover{background:#ddd}
-      @media print{.print-btn{display:none}}
+      .footer p{font-size:10px;color:#aaa;line-height:1.8}
+      .footer .web{color:#666;letter-spacing:0.2em;font-weight:500}
+      @media print{body{background:#fff;padding:0}@page{margin:10mm}.print-btn{display:none !important}.boleta{box-shadow:none;border:none}}
+      .print-btn{position:fixed;bottom:20px;right:20px;background:#000;color:#fff;border:none;padding:12px 24px;border-radius:8px;font-family:'Syne';font-size:12px;font-weight:600;letter-spacing:0.2em;text-transform:uppercase;cursor:pointer}
+      .print-btn:hover{background:#333}
     </style></head><body>
     <div class="boleta">
       <div class="header">
@@ -188,7 +181,6 @@ const BoletaModal = ({ venta, onClose }) => {
         <div class="info-row"><span class="info-label">Fecha</span><span class="info-value">${formatDateTime(venta.fecha)}</span></div>
         <div class="info-row"><span class="info-label">Cliente</span><span class="info-value">${venta.cliente}</span></div>
         <div class="info-row"><span class="info-label">Método de pago</span><span class="info-value">${venta.metodoPago}</span></div>
-        <div class="info-row"><span class="info-label">Estado</span><span class="info-value"><span class="badge badge-${venta.estado.toLowerCase()}">${venta.estado}</span></span></div>
       </div>
       <div class="items">
         <div class="items-title">Detalle del pedido</div>
@@ -197,7 +189,7 @@ const BoletaModal = ({ venta, onClose }) => {
       <div class="total-section">
         <table>
           ${descuentoHtml}
-          <tr class="total-row"><td style="padding:12px 0;border-top:2px solid #333;font-size:16px;font-weight:600">TOTAL</td><td style="padding:12px 0;text-align:right;border-top:2px solid #333;font-size:20px;font-weight:600">${formatCurrency(venta.total)}</td></tr>
+          <tr class="total-row"><td style="padding:12px 0">TOTAL</td><td style="padding:12px 0;text-align:right">${formatCurrency(venta.total)}</td></tr>
         </table>
       </div>
       <div class="footer">
@@ -245,26 +237,31 @@ const BoletaModal = ({ venta, onClose }) => {
 // DASHBOARD
 // ═══════════════════════════════════════════════
 const Dashboard = ({ ventas, productos, clientes, compras }) => {
-  const vh = ventas.filter(v => isSameDay(v.fecha, today));
-  const vs = ventas.filter(v => withinDays(v.fecha, 7));
-  const vm = ventas.filter(v => withinDays(v.fecha, 30));
+  const vh = ventas.filter(v => isSameDay(v.fecha, today) && ESTADOS_COBRADOS.includes(v.estado));
+  const vs = ventas.filter(v => withinDays(v.fecha, 7) && ESTADOS_COBRADOS.includes(v.estado));
+  const vm = ventas.filter(v => withinDays(v.fecha, 30) && ESTADOS_COBRADOS.includes(v.estado));
+  const vPendientes = ventas.filter(v => v.estado === "Pendiente");
   const ih = vh.reduce((s, v) => s + v.total, 0);
   const is_ = vs.reduce((s, v) => s + v.total, 0);
   const im = vm.reduce((s, v) => s + v.total, 0);
+  const pendienteTotal = vPendientes.reduce((s, v) => s + v.total, 0);
   const ts = productos.reduce((s, p) => s + p.variantes.reduce((ss, v) => ss + v.stock, 0), 0);
   const sc = []; const sn = [];
   productos.forEach(p => p.variantes.forEach(v => { if (v.stock === 0) sn.push({ ...v, producto: p.nombre }); else if (v.stock <= 3) sc.push({ ...v, producto: p.nombre }); }));
   const noData = ventas.length === 0;
+  
+  // Egresos reales del mes (compras + gastos)
+  const egresosMes = compras.filter(c => withinDays(c.fecha, 30)).reduce((s, c) => s + c.costoTotal, 0);
+  const gananciaReal = im - egresosMes;
 
   const vpd = Array.from({ length: 7 }, (_, i) => {
     const d = new Date(today.getTime() - (6 - i) * 86400000);
-    const dv = ventas.filter(v => isSameDay(v.fecha, d));
+    const dv = ventas.filter(v => isSameDay(v.fecha, d) && ESTADOS_COBRADOS.includes(v.estado));
     return { dia: d.toLocaleDateString("es-PE", { weekday: "short" }), ingresos: dv.reduce((s, v) => s + v.total, 0) };
   });
 
-  const pmv = useMemo(() => { const m = {}; ventas.forEach(v => v.items.forEach(it => { m[it.nombre] = (m[it.nombre] || 0) + it.cantidad; })); return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, value]) => ({ name: name.length > 22 ? name.slice(0, 22) + "…" : name, value })); }, [ventas]);
-  const vpm = useMemo(() => { const m = {}; ventas.forEach(v => { m[v.metodoPago] = (m[v.metodoPago] || 0) + 1; }); return Object.entries(m).map(([name, value]) => ({ name, value })); }, [ventas]);
-  const cp = vm.reduce((s, v) => s + v.items.reduce((ss, it) => { const p = productos.find(pr => pr.id === it.productoId); return ss + ((p?.costo || 0) * it.cantidad); }, 0), 0);
+  const pmv = useMemo(() => { const m = {}; ventas.filter(v => !["Cancelado"].includes(v.estado)).forEach(v => v.items.forEach(it => { m[it.nombre] = (m[it.nombre] || 0) + it.cantidad; })); return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, value]) => ({ name: name.length > 22 ? name.slice(0, 22) + "…" : name, value })); }, [ventas]);
+  const vpm = useMemo(() => { const m = {}; ventas.filter(v => ESTADOS_COBRADOS.includes(v.estado)).forEach(v => { m[v.metodoPago] = (m[v.metodoPago] || 0) + 1; }); return Object.entries(m).map(([name, value]) => ({ name, value })); }, [ventas]);
   const CC = ["#fff", "#a0a0a0", "#606060", "#404040"];
 
   return (
@@ -306,7 +303,7 @@ const Dashboard = ({ ventas, productos, clientes, compras }) => {
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
           <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4">Resumen Mes</h3>
           <div className="space-y-3">
-            {[["Ingresos", formatCurrency(im), "text-white"], ["Costo productos", `- ${formatCurrency(cp)}`, "text-red-400"], ["Ganancia est.", formatCurrency(im - cp), "text-emerald-400"], ["Margen", `${im > 0 ? ((im - cp) / im * 100).toFixed(1) : 0}%`, "text-white"]].map(([l, v, c]) => (
+            {[["Ingresos cobrados", formatCurrency(im), "text-white"], ["Pendientes de cobro", formatCurrency(pendienteTotal), "text-amber-400"], ["Egresos del mes", `- ${formatCurrency(egresosMes)}`, "text-red-400"], ["Utilidad real", formatCurrency(gananciaReal), gananciaReal >= 0 ? "text-emerald-400" : "text-red-400"]].map(([l, v, c]) => (
               <div key={l} className="flex items-center justify-between py-2.5 border-b border-neutral-800 last:border-0"><span className="text-sm text-neutral-500">{l}</span><span className={`text-sm font-medium ${c}`}>{v}</span></div>
             ))}
           </div>
@@ -346,7 +343,21 @@ const VentasModule = ({ ventas, setVentas, productos, setProductos, clientes, se
     setForm({ clienteId: "", clienteNuevo: "", telefonoNuevo: "", ciudadNuevo: "Lima", items: [], metodoPago: "Yape", notas: "" }); setShowModal(false); setToast("¡Venta registrada!");
     setTimeout(() => window.open(generateWhatsAppLink(nv, cTel), "_blank"), 500);
   };
-  const cambiarEstado = (id, ne) => setVentas(p => p.map(v => v.id === id ? { ...v, estado: ne } : v));
+  const cambiarEstado = (id, ne) => {
+    const venta = ventas.find(v => v.id === id);
+    if (!venta) return;
+    // Si se cancela, devolver stock
+    if (ne === "Cancelado" && venta.estado !== "Cancelado") {
+      const np = JSON.parse(JSON.stringify(productos));
+      venta.items.forEach(it => {
+        const pi = np.findIndex(p => p.id === it.productoId);
+        if (pi >= 0) { const vi = np[pi].variantes.findIndex(v => v.talla === it.talla && v.color === it.color); if (vi >= 0) np[pi].variantes[vi].stock += it.cantidad; }
+      });
+      setProductos(np);
+      venta.items.forEach(it => { setKardex(p => [{ id: generateId(), tipo: "Entrada", producto: it.nombre, cantidad: it.cantidad, fecha: new Date().toISOString(), referencia: `Cancelación ${id.slice(0,6)}`, nota: "Venta cancelada — stock devuelto" }, ...p]); });
+    }
+    setVentas(p => p.map(v => v.id === id ? { ...v, estado: ne } : v));
+  };
   const sp = productos.find(p => p.id === itemForm.productoId);
   const at = sp ? [...new Set(sp.variantes.filter(v => v.stock > 0).map(v => v.talla))] : [];
   const ac = sp && itemForm.talla ? sp.variantes.filter(v => v.talla === itemForm.talla && v.stock > 0).map(v => v.color) : [];
@@ -369,7 +380,7 @@ const VentasModule = ({ ventas, setVentas, productos, setProductos, clientes, se
               {calc.descuento > 0 && <div className="flex justify-between text-xs"><span className="text-neutral-500">Subtotal ({calc.totalItems} polos)</span><span className="text-neutral-500 line-through">{formatCurrency(calc.totalSinOferta)}</span></div>}
               {calc.descuento > 0 && <div className="flex justify-between text-xs"><span className="text-emerald-400">🔥 Oferta aplicada</span><span className="text-emerald-400">- {formatCurrency(calc.descuento)}</span></div>}
               <div className="flex justify-between items-center"><span className="text-sm text-neutral-400">Total</span><span className="text-white font-medium text-lg">{formatCurrency(calc.total)}</span></div>
-              {calc.totalItems === 1 && <p className="text-xs text-amber-400/80 text-center">💡 Agrega 1 polo más y aplica precio 2 x S/ 90</p>}
+              {calc.totalItems === 1 && <p className="text-xs text-amber-400/80 text-center">💡 Agrega 1 polo más y aplica oferta 2 x S/ 90</p>}
               {calc.totalItems === 2 && calc.descuento > 0 && <p className="text-xs text-emerald-400/80 text-center">✅ Oferta 2 x S/ 90 aplicada · Agrega 1 más para 3 x S/ 120</p>}
               {calc.totalItems >= 3 && calc.descuento > 0 && <p className="text-xs text-emerald-400/80 text-center">✅ Oferta 3 x S/ 120 aplicada</p>}
             </div>); })()}
@@ -398,7 +409,7 @@ const VentasModule = ({ ventas, setVentas, productos, setProductos, clientes, se
 // ═══════════════════════════════════════════════
 const InventarioModule = ({ productos, setProductos, kardex, setKardex }) => {
   const [expandedId, setExpandedId] = useState(null); const [showKardex, setShowKardex] = useState(false); const [showStock, setShowStock] = useState(null); const [showModal, setShowModal] = useState(false); const [toast, setToast] = useState(""); const [stockEdit, setStockEdit] = useState({});
-  const [form, setForm] = useState({ nombre: "", categoria: "BOXYFIT", precio: "49.90", costo: "18", sku: "", variantes: [{ talla: "M", color: "Verde Botella", stock: 0 }] });
+  const [form, setForm] = useState({ nombre: "", categoria: "BOXYFIT", precio: "50", costo: "18", sku: "", variantes: [{ talla: "M", color: "Verde Botella", stock: 0 }] });
 
   const openStockModal = (p) => { const se = {}; p.variantes.forEach((v, i) => { se[i] = v.stock; }); setStockEdit(se); setShowStock(p); };
   const guardarStock = () => {
@@ -413,7 +424,7 @@ const InventarioModule = ({ productos, setProductos, kardex, setKardex }) => {
     const np = { id: generateId(), nombre: form.nombre, categoria: form.categoria, precio: parseFloat(form.precio), costo: parseFloat(form.costo) || 0, sku: form.sku || `STY-${generateId().slice(0, 5).toUpperCase()}`, imagen: "🖤", variantes: form.variantes.map(v => ({ ...v, stock: parseInt(v.stock) || 0 })) };
     setProductos(prev => [...prev, np]); const ti = np.variantes.reduce((s, v) => s + v.stock, 0);
     if (ti > 0) setKardex(prev => [{ id: generateId(), tipo: "Entrada", producto: np.nombre, cantidad: ti, fecha: new Date().toISOString(), referencia: "Stock inicial", nota: "Nuevo producto" }, ...prev]);
-    setForm({ nombre: "", categoria: "BOXYFIT", precio: "49.90", costo: "18", sku: "", variantes: [{ talla: "M", color: "Verde Botella", stock: 0 }] }); setShowModal(false); setToast("Producto creado");
+    setForm({ nombre: "", categoria: "BOXYFIT", precio: "50", costo: "18", sku: "", variantes: [{ talla: "M", color: "Verde Botella", stock: 0 }] }); setShowModal(false); setToast("Producto creado");
   };
 
   return (
@@ -456,7 +467,7 @@ const ClientesModule = ({ clientes, setClientes, ventas }) => {
       <Modal open={showModal} onClose={() => setShowModal(false)} title="Nuevo Cliente"><div className="space-y-3"><Input label="Nombre" value={form.nombre} onChange={e => setForm({ ...form, nombre: e.target.value })} /><div className="grid grid-cols-2 gap-3"><Input label="Teléfono" value={form.telefono} onChange={e => setForm({ ...form, telefono: e.target.value })} placeholder="9XXXXXXXX" /><Select label="Ciudad" value={form.ciudad} onChange={e => setForm({ ...form, ciudad: e.target.value })} options={CIUDADES_PERU} /></div><Input label="Instagram" value={form.instagram} onChange={e => setForm({ ...form, instagram: e.target.value })} placeholder="@usuario" /><div className="flex justify-end gap-3 pt-3 border-t border-neutral-800"><Btn variant="secondary" onClick={() => setShowModal(false)}>Cancelar</Btn><Btn onClick={crearCliente} disabled={!form.nombre}>Crear</Btn></div></div></Modal>
 
       <Modal open={!!showDetalle} onClose={() => setShowDetalle(null)} title={showDetalle?.nombre || ""} wide>{showDetalle && <div className="space-y-5">
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">{[["Compras",showDetalle.totalCompras],["Gastado",formatCurrency(showDetalle.totalGastado)],["Ticket prom.",formatCurrency(showDetalle.totalCompras>0?showDetalle.totalGastado/showDetalle.totalCompras:0)]].map(([l,v])=><div key={l} className="bg-neutral-800 rounded-lg p-3 text-center"><p className="text-xs text-neutral-500">{l}</p><p className="text-lg font-light text-white mt-1">{v}</p></div>)}<div className="bg-neutral-800 rounded-lg p-3 text-center"><p className="text-xs text-neutral-500">Tipo</p><div className="mt-2">{tipoBadge(showDetalle.tipo)}</div></div></div>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">{[["Compras",showDetalle.totalCompras],["Gastado",formatCurrency(showDetalle.totalGastado)],["Ticket prom.",formatCurrency(showDetalle.totalCompras>0?showDetalle.totalGastado/showDetalle.totalCompras:0)]].map(([l,v])=><div key={l} className="bg-neutral-800 rounded-lg p-3 text-center"><p className="text-xs text-neutral-500">{l}</p><p className="text-lg font-light text-white mt-1">{v}</p></div>)}<div className="bg-neutral-800 rounded-lg p-3 text-center"><p className="text-xs text-neutral-500 mb-2">Tipo</p><div className="flex flex-wrap gap-1 justify-center">{["Nuevo","Regular","Frecuente","VIP"].map(t=><button key={t} onClick={()=>{setClientes(p=>p.map(c=>c.id===showDetalle.id?{...c,tipo:t}:c));setShowDetalle({...showDetalle,tipo:t});setToast(`Cliente → ${t}`);}} className={`px-2 py-0.5 rounded text-xs transition-all ${showDetalle.tipo===t?"bg-white text-black font-medium":"bg-neutral-700 text-neutral-400 hover:bg-neutral-600"}`}>{t}</button>)}</div></div></div>
         <div className="grid grid-cols-2 gap-3 text-sm"><div className="flex items-center gap-2 text-neutral-400"><Phone size={14}/>{showDetalle.telefono||"—"}</div><div className="flex items-center gap-2 text-neutral-400"><MapPin size={14}/>{showDetalle.ciudad}</div>{showDetalle.instagram&&<div className="flex items-center gap-2 text-neutral-400"><Hash size={14}/>{showDetalle.instagram}</div>}<div className="flex items-center gap-2 text-neutral-400"><Calendar size={14}/>{formatDate(showDetalle.fechaRegistro)}</div></div>
         {showDetalle.telefono&&<Btn variant="whatsapp" size="sm" onClick={()=>window.open(`https://wa.me/51${showDetalle.telefono}?text=${encodeURIComponent("¡Hola! 👋 Soy de STYLUM 🖤")}`,"_blank")}><Send size={14}/>WhatsApp</Btn>}
         <div><p className="text-xs text-neutral-500 uppercase tracking-widest mb-3">Historial</p>{ventas.filter(v=>v.clienteId===showDetalle.id).length===0?<p className="text-xs text-neutral-600 py-4 text-center">Sin compras</p>:<div className="space-y-2">{ventas.filter(v=>v.clienteId===showDetalle.id).map(v=><div key={v.id} className="flex items-center justify-between bg-neutral-800 rounded-lg px-4 py-3"><div><p className="text-sm text-white">{v.items.map(it=>it.nombre).join(", ")}</p><p className="text-xs text-neutral-500">{formatDate(v.fecha)}</p></div><div className="flex items-center gap-3">{estadoBadge(v.estado)}<span className="text-sm text-white font-medium">{formatCurrency(v.total)}</span></div></div>)}</div>}</div>
@@ -468,20 +479,102 @@ const ClientesModule = ({ clientes, setClientes, ventas }) => {
 // ═══════════════════════════════════════════════
 // COMPRAS
 // ═══════════════════════════════════════════════
-const ComprasModule = ({ compras, setCompras }) => {
+const ComprasModule = ({ compras, setCompras, productos, setProductos, kardex, setKardex }) => {
   const [showModal, setShowModal] = useState(false); const [toast, setToast] = useState("");
-  const [form, setForm] = useState({ proveedor: "", items: "", cantidad: "", costoTotal: "", notas: "" });
-  const crearCompra = () => { if (!form.proveedor || !form.costoTotal) return; setCompras(p => [{ id: generateId(), ...form, cantidad: parseInt(form.cantidad) || 0, costoTotal: parseFloat(form.costoTotal), fecha: new Date().toISOString(), estado: "En tránsito" }, ...p]); setForm({ proveedor: "", items: "", cantidad: "", costoTotal: "", notas: "" }); setShowModal(false); setToast("Compra registrada"); };
-  const tg = compras.reduce((s, c) => s + c.costoTotal, 0);
+  const [tipoCompra, setTipoCompra] = useState("producto"); // producto | gasto
+  const [form, setForm] = useState({ proveedor: "", items: "", productoId: "", cantidad: "", costoTotal: "", notas: "" });
+  
+  const crearCompra = () => {
+    if (!form.proveedor || !form.costoTotal) return;
+    const prod = tipoCompra === "producto" ? productos.find(p => p.id === form.productoId) : null;
+    const nc = { id: generateId(), tipo: tipoCompra, proveedor: form.proveedor, items: tipoCompra === "producto" && prod ? `${form.cantidad} uds — ${prod.nombre}` : form.items, productoId: form.productoId || null, productoNombre: prod?.nombre || null, cantidad: parseInt(form.cantidad) || 0, costoTotal: parseFloat(form.costoTotal), fecha: new Date().toISOString(), estado: tipoCompra === "gasto" ? "Recibido" : "En tránsito", notas: form.notas };
+    setCompras(p => [nc, ...p]);
+    setForm({ proveedor: "", items: "", productoId: "", cantidad: "", costoTotal: "", notas: "" });
+    setShowModal(false);
+    setToast(tipoCompra === "producto" ? "Compra registrada — cambia a 'Recibido' para actualizar stock" : "Gasto registrado");
+  };
+
+  const marcarRecibido = (compra) => {
+    if (compra.estado === "Recibido" || compra.tipo === "gasto") return;
+    setCompras(p => p.map(c => c.id === compra.id ? { ...c, estado: "Recibido" } : c));
+    // Si es compra de producto, aumentar inventario
+    if (compra.tipo === "producto" && compra.productoId && compra.cantidad > 0) {
+      setProductos(prev => prev.map(p => {
+        if (p.id !== compra.productoId) return p;
+        // Distribuir equitativamente entre variantes existentes
+        const numVariantes = p.variantes.length;
+        const perVariante = Math.floor(compra.cantidad / numVariantes);
+        const remainder = compra.cantidad % numVariantes;
+        return { ...p, variantes: p.variantes.map((v, i) => ({ ...v, stock: v.stock + perVariante + (i < remainder ? 1 : 0) })) };
+      }));
+      setKardex(prev => [{ id: generateId(), tipo: "Entrada", producto: compra.productoNombre || "Producto", cantidad: compra.cantidad, fecha: new Date().toISOString(), referencia: `Compra ${compra.id.slice(0,6)}`, nota: `${compra.proveedor} — Recibido` }, ...prev]);
+      setToast("Recibido — stock actualizado automáticamente ✅");
+    } else {
+      setToast("Marcado como recibido");
+    }
+  };
+
+  const tgProductos = compras.filter(c => c.tipo === "producto").reduce((s, c) => s + c.costoTotal, 0);
+  const tgGastos = compras.filter(c => c.tipo === "gasto").reduce((s, c) => s + c.costoTotal, 0);
+  const tgTotal = compras.reduce((s, c) => s + c.costoTotal, 0);
 
   return (
     <div className="space-y-5">
       {toast && <Toast message={toast} onClose={() => setToast("")} />}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"><div><h2 className="text-2xl font-light tracking-tight text-white">Compras</h2><p className="text-xs text-neutral-500 uppercase tracking-widest mt-1">Invertido: {formatCurrency(tg)}</p></div><Btn onClick={() => setShowModal(true)}><Plus size={14} /> Nueva</Btn></div>
-      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3"><StatCard icon={DollarSign} label="Invertido" value={formatCurrency(tg)} /><StatCard icon={Package} label="Compras" value={compras.length} sub={`${compras.filter(c => c.estado === "En tránsito").length} en tránsito`} /><StatCard icon={Calculator} label="Costo prom." value={formatCurrency(compras.reduce((s,c) => s+c.cantidad, 0) > 0 ? tg / compras.reduce((s,c) => s+c.cantidad, 0) : 0)} /></div>
-      {compras.length === 0 ? <EmptyState icon={Truck} title="Sin compras" sub="Registra compras de tela, estampados, packaging..." action={() => setShowModal(true)} actionLabel="Nueva Compra" /> :
-      <div className="space-y-3">{compras.map(c => <div key={c.id} className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 hover:border-neutral-700 transition-colors"><div className="flex items-center justify-between"><div><p className="text-sm text-white font-medium">{c.proveedor}</p><p className="text-xs text-neutral-500 mt-0.5">{c.items}</p></div><div className="flex items-center gap-4"><button onClick={() => setCompras(p => p.map(x => x.id === c.id ? { ...x, estado: x.estado === "En tránsito" ? "Recibido" : "En tránsito" } : x))}>{estadoBadge(c.estado)}</button><div className="text-right"><p className="text-sm text-white font-medium">{formatCurrency(c.costoTotal)}</p><p className="text-xs text-neutral-500">{c.cantidad} uds · {formatDate(c.fecha)}</p></div></div></div>{c.notas && <p className="text-xs text-neutral-600 mt-2 pt-2 border-t border-neutral-800">{c.notas}</p>}</div>)}</div>}
-      <Modal open={showModal} onClose={() => setShowModal(false)} title="Nueva Compra"><div className="space-y-3"><Input label="Proveedor" value={form.proveedor} onChange={e => setForm({ ...form, proveedor: e.target.value })} /><Input label="Descripción" value={form.items} onChange={e => setForm({ ...form, items: e.target.value })} placeholder="50 polos algodón..." /><div className="grid grid-cols-2 gap-3"><Input label="Cantidad" type="number" value={form.cantidad} onChange={e => setForm({ ...form, cantidad: e.target.value })} /><Input label="Costo Total (S/)" type="number" value={form.costoTotal} onChange={e => setForm({ ...form, costoTotal: e.target.value })} /></div><Input label="Notas" value={form.notas} onChange={e => setForm({ ...form, notas: e.target.value })} /><div className="flex justify-end gap-3 pt-3 border-t border-neutral-800"><Btn variant="secondary" onClick={() => setShowModal(false)}>Cancelar</Btn><Btn onClick={crearCompra} disabled={!form.proveedor || !form.costoTotal}>Registrar</Btn></div></div></Modal>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"><div><h2 className="text-2xl font-light tracking-tight text-white">Egresos</h2><p className="text-xs text-neutral-500 uppercase tracking-widest mt-1">Compras + Gastos operativos</p></div><Btn onClick={() => setShowModal(true)}><Plus size={14} /> Nuevo Egreso</Btn></div>
+      
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <StatCard icon={DollarSign} label="Total Egresos" value={formatCurrency(tgTotal)} />
+        <StatCard icon={Package} label="Compras Prod." value={formatCurrency(tgProductos)} sub={`${compras.filter(c => c.tipo === "producto").length} compras`} />
+        <StatCard icon={Calculator} label="Gastos Oper." value={formatCurrency(tgGastos)} sub={`${compras.filter(c => c.tipo === "gasto").length} gastos`} />
+        <StatCard icon={Truck} label="En Tránsito" value={compras.filter(c => c.estado === "En tránsito").length} sub="Pendientes de recibir" />
+      </div>
+
+      {compras.length === 0 ? <EmptyState icon={Truck} title="Sin egresos registrados" sub="Registra compras de productos o gastos operativos" action={() => setShowModal(true)} actionLabel="Nuevo Egreso" /> :
+      <div className="space-y-3">{compras.map(c => (
+        <div key={c.id} className="bg-neutral-900 border border-neutral-800 rounded-xl p-4 hover:border-neutral-700 transition-colors">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={`w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0 ${c.tipo === "producto" ? "bg-sky-950 text-sky-400" : "bg-amber-950 text-amber-400"}`}>{c.tipo === "producto" ? <Package size={14} /> : <Calculator size={14} />}</div>
+              <div><p className="text-sm text-white font-medium">{c.proveedor}</p><p className="text-xs text-neutral-500 mt-0.5">{c.items}</p></div>
+            </div>
+            <div className="flex items-center gap-4">
+              {c.tipo === "producto" && c.estado !== "Recibido" ? <button onClick={() => marcarRecibido(c)} className="hover:opacity-80 transition-opacity">{estadoBadge(c.estado)}</button> : estadoBadge(c.estado)}
+              <div className="text-right"><p className="text-sm text-white font-medium">{formatCurrency(c.costoTotal)}</p><p className="text-xs text-neutral-500">{c.tipo === "producto" ? `${c.cantidad} uds · ` : ""}{formatDate(c.fecha)}</p></div>
+            </div>
+          </div>
+          {c.tipo === "producto" && c.estado === "En tránsito" && <p className="text-xs text-sky-400/70 mt-2 pt-2 border-t border-neutral-800">Haz clic en "En tránsito" para marcar como recibido y actualizar stock</p>}
+          {c.notas && <p className="text-xs text-neutral-600 mt-2 pt-2 border-t border-neutral-800">{c.notas}</p>}
+        </div>
+      ))}</div>}
+
+      <Modal open={showModal} onClose={() => setShowModal(false)} title="Nuevo Egreso" wide>
+        <div className="space-y-4">
+          <div className="flex gap-2 mb-1">{[{id:"producto",label:"Compra de producto",desc:"Afecta inventario al recibir"},{id:"gasto",label:"Gasto operativo",desc:"Envíos, publicidad, empaque..."}].map(t => (
+            <button key={t.id} onClick={() => setTipoCompra(t.id)} className={`flex-1 p-3 rounded-lg text-left transition-all border ${tipoCompra === t.id ? "bg-neutral-800 border-white" : "bg-neutral-900 border-neutral-800 hover:border-neutral-700"}`}>
+              <p className={`text-xs uppercase tracking-widest font-medium ${tipoCompra === t.id ? "text-white" : "text-neutral-500"}`}>{t.label}</p>
+              <p className="text-xs text-neutral-600 mt-1">{t.desc}</p>
+            </button>
+          ))}</div>
+          
+          <Input label="Proveedor / Origen" value={form.proveedor} onChange={e => setForm({ ...form, proveedor: e.target.value })} placeholder={tipoCompra === "producto" ? "Textiles San Juan" : "Olva Courier, Meta Ads..."} />
+          
+          {tipoCompra === "producto" ? <>
+            <Select label="Producto destino" value={form.productoId} onChange={e => setForm({ ...form, productoId: e.target.value })} options={[{ value: "", label: "Seleccionar producto..." }, ...productos.map(p => ({ value: p.id, label: `${p.imagen} ${p.nombre}` }))]} />
+            <div className="grid grid-cols-2 gap-3">
+              <Input label="Cantidad (unidades)" type="number" value={form.cantidad} onChange={e => setForm({ ...form, cantidad: e.target.value })} placeholder="50" />
+              <Input label="Costo Total (S/)" type="number" value={form.costoTotal} onChange={e => setForm({ ...form, costoTotal: e.target.value })} />
+            </div>
+            <p className="text-xs text-neutral-500">Al marcar como "Recibido", el stock del producto se actualiza automáticamente.</p>
+          </> : <>
+            <Input label="Descripción del gasto" value={form.items} onChange={e => setForm({ ...form, items: e.target.value })} placeholder="Envíos del mes, publicidad Instagram..." />
+            <Input label="Monto Total (S/)" type="number" value={form.costoTotal} onChange={e => setForm({ ...form, costoTotal: e.target.value })} />
+          </>}
+          
+          <Input label="Notas" value={form.notas} onChange={e => setForm({ ...form, notas: e.target.value })} placeholder="Opcional..." />
+          <div className="flex justify-end gap-3 pt-3 border-t border-neutral-800"><Btn variant="secondary" onClick={() => setShowModal(false)}>Cancelar</Btn><Btn onClick={crearCompra} disabled={!form.proveedor || !form.costoTotal || (tipoCompra === "producto" && !form.productoId)}>Registrar</Btn></div>
+        </div>
+      </Modal>
     </div>
   );
 };
@@ -489,23 +582,56 @@ const ComprasModule = ({ compras, setCompras }) => {
 // ═══════════════════════════════════════════════
 // REPORTES
 // ═══════════════════════════════════════════════
-const ReportesModule = ({ ventas, productos, clientes }) => {
+const ReportesModule = ({ ventas, productos, clientes, compras }) => {
   const [periodo, setPeriodo] = useState("mes");
   const dias = periodo === "hoy" ? 1 : periodo === "semana" ? 7 : 30;
-  const vf = ventas.filter(v => withinDays(v.fecha, dias));
+  const vf = ventas.filter(v => withinDays(v.fecha, dias) && ESTADOS_COBRADOS.includes(v.estado));
+  const vfAll = ventas.filter(v => withinDays(v.fecha, dias) && v.estado !== "Cancelado");
+  const vPend = ventas.filter(v => withinDays(v.fecha, dias) && v.estado === "Pendiente");
   const ing = vf.reduce((s, v) => s + v.total, 0);
-  const cos = vf.reduce((s, v) => s + v.items.reduce((ss, it) => { const p = productos.find(pr => pr.id === it.productoId); return ss + ((p?.costo || 0) * it.cantidad); }, 0), 0);
-  const pp = useMemo(() => { const m = {}; vf.forEach(v => v.items.forEach(it => { if (!m[it.nombre]) m[it.nombre] = { nombre: it.nombre, cantidad: 0, ingresos: 0 }; m[it.nombre].cantidad += it.cantidad; m[it.nombre].ingresos += it.precio * it.cantidad; })); return Object.values(m).sort((a, b) => b.ingresos - a.ingresos); }, [vf]);
+  const pendiente = vPend.reduce((s, v) => s + v.total, 0);
+  const egresos = compras.filter(c => withinDays(c.fecha, dias)).reduce((s, c) => s + c.costoTotal, 0);
+  const egresosProducto = compras.filter(c => withinDays(c.fecha, dias) && c.tipo === "producto").reduce((s, c) => s + c.costoTotal, 0);
+  const egresosGasto = compras.filter(c => withinDays(c.fecha, dias) && c.tipo === "gasto").reduce((s, c) => s + c.costoTotal, 0);
+  const utilidad = ing - egresos;
+  const pp = useMemo(() => { const m = {}; vfAll.forEach(v => v.items.forEach(it => { if (!m[it.nombre]) m[it.nombre] = { nombre: it.nombre, cantidad: 0, ingresos: 0 }; m[it.nombre].cantidad += it.cantidad; m[it.nombre].ingresos += it.precio * it.cantidad; })); return Object.values(m).sort((a, b) => b.ingresos - a.ingresos); }, [vfAll]);
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"><div><h2 className="text-2xl font-light tracking-tight text-white">Reportes</h2></div><div className="flex gap-2">{[{v:"hoy",l:"Hoy"},{v:"semana",l:"Semana"},{v:"mes",l:"Mes"}].map(p=><button key={p.v} onClick={()=>setPeriodo(p.v)} className={`px-4 py-2 text-xs uppercase tracking-widest rounded-lg transition-all ${periodo===p.v?"bg-white text-black":"bg-neutral-800 text-neutral-400"}`}>{p.l}</button>)}</div></div>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3"><StatCard icon={DollarSign} label="Ingresos" value={formatCurrency(ing)} /><StatCard icon={ShoppingCart} label="Ventas" value={vf.length} /><StatCard icon={TrendingUp} label="Ganancia" value={formatCurrency(ing-cos)} /><StatCard icon={Target} label="Ticket Prom." value={formatCurrency(vf.length>0?ing/vf.length:0)} /></div>
+      
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+        <StatCard icon={DollarSign} label="Ingresos Cobrados" value={formatCurrency(ing)} sub={`${vf.length} ventas cobradas`} />
+        <StatCard icon={Clock} label="Pendientes" value={formatCurrency(pendiente)} sub={`${vPend.length} por cobrar`} />
+        <StatCard icon={ArrowDownRight} label="Egresos" value={formatCurrency(egresos)} sub={`Prod: ${formatCurrency(egresosProducto)} · Op: ${formatCurrency(egresosGasto)}`} />
+        <StatCard icon={TrendingUp} label="Utilidad Real" value={formatCurrency(utilidad)} sub={ing > 0 ? `Margen: ${(utilidad/ing*100).toFixed(0)}%` : "—"} />
+      </div>
+
+      {/* Desglose financiero */}
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
+        <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4">Estado de Resultados</h3>
+        <div className="space-y-2">
+          {[
+            ["Ingresos cobrados", formatCurrency(ing), "text-white", true],
+            ["Pendientes de cobro", formatCurrency(pendiente), "text-amber-400", false],
+            ["(−) Compras de producto", `- ${formatCurrency(egresosProducto)}`, "text-red-400", false],
+            ["(−) Gastos operativos", `- ${formatCurrency(egresosGasto)}`, "text-red-400", false],
+            ["(−) Total egresos", `- ${formatCurrency(egresos)}`, "text-red-400", true],
+            ["UTILIDAD NETA", formatCurrency(utilidad), utilidad >= 0 ? "text-emerald-400" : "text-red-400", true],
+          ].map(([l, v, c, bold]) => (
+            <div key={l} className={`flex items-center justify-between py-2.5 ${bold ? "border-t border-neutral-700 pt-3" : "border-b border-neutral-800/50"}`}>
+              <span className={`text-sm ${bold ? "font-medium text-neutral-300" : "text-neutral-500"}`}>{l}</span>
+              <span className={`text-sm font-medium ${c}`}>{v}</span>
+            </div>
+          ))}
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5"><h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4">Por Producto</h3>{pp.length===0?<div className="py-12 text-center text-xs text-neutral-600">Sin datos</div>:<div className="space-y-3">{pp.map((p,i)=><div key={i}><div className="flex items-center justify-between text-sm mb-1"><span className="text-neutral-300">{p.nombre}</span><span className="text-white">{formatCurrency(p.ingresos)} <span className="text-neutral-600">({p.cantidad})</span></span></div><div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden"><div className="h-full bg-white rounded-full" style={{width:`${(p.ingresos/(pp[0]?.ingresos||1))*100}%`}}/></div></div>)}</div>}</div>
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5"><h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4">Stock Actual</h3><div className="space-y-2">{productos.map(p=>{const ts=p.variantes.reduce((s,v)=>s+v.stock,0);return <div key={p.id} className="flex items-center justify-between bg-neutral-800 rounded-lg px-4 py-3"><div className="flex items-center gap-3"><span>{p.imagen}</span><div><p className="text-sm text-white">{p.nombre}</p><p className="text-xs text-neutral-500">{p.variantes.map(v=>`${v.talla}:${v.stock}`).join(" · ")}</p></div></div><p className={`text-sm font-medium ${ts===0?"text-red-400":ts<=5?"text-amber-400":"text-white"}`}>{ts}</p></div>;})}</div></div>
       </div>
-      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5"><h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4">Márgenes</h3><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-neutral-800">{["Producto","Precio","Costo","Margen","%","Stock"].map(h=><th key={h} className="text-left px-4 py-2 text-xs text-neutral-500 uppercase tracking-widest font-medium">{h}</th>)}</tr></thead><tbody>{productos.map(p=>{const ts=p.variantes.reduce((s,v)=>s+v.stock,0);const mg=p.precio-p.costo;return <tr key={p.id} className="border-b border-neutral-800/50"><td className="px-4 py-2.5 text-white">{p.imagen} {p.nombre}</td><td className="px-4 py-2.5 text-white">{formatCurrency(p.precio)}</td><td className="px-4 py-2.5 text-neutral-400">{formatCurrency(p.costo)}</td><td className="px-4 py-2.5 text-emerald-400">{formatCurrency(mg)}</td><td className="px-4 py-2.5 text-emerald-400">{(mg/p.precio*100).toFixed(0)}%</td><td className="px-4 py-2.5 text-white">{ts}</td></tr>;})}</tbody></table></div></div>
+      <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5"><h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4">Márgenes por Producto</h3><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-neutral-800">{["Producto","Precio","Costo","Margen","%","Stock"].map(h=><th key={h} className="text-left px-4 py-2 text-xs text-neutral-500 uppercase tracking-widest font-medium">{h}</th>)}</tr></thead><tbody>{productos.map(p=>{const ts=p.variantes.reduce((s,v)=>s+v.stock,0);const mg=p.precio-p.costo;return <tr key={p.id} className="border-b border-neutral-800/50"><td className="px-4 py-2.5 text-white">{p.imagen} {p.nombre}</td><td className="px-4 py-2.5 text-white">{formatCurrency(p.precio)}</td><td className="px-4 py-2.5 text-neutral-400">{formatCurrency(p.costo)}</td><td className="px-4 py-2.5 text-emerald-400">{formatCurrency(mg)}</td><td className="px-4 py-2.5 text-emerald-400">{(mg/p.precio*100).toFixed(0)}%</td><td className="px-4 py-2.5 text-white">{ts}</td></tr>;})}</tbody></table></div></div>
     </div>
   );
 };
@@ -522,7 +648,7 @@ const LoginScreen = ({ onLogin }) => {
 // ═══════════════════════════════════════════════
 // MAIN APP
 // ═══════════════════════════════════════════════
-const NAV = [{ id: "dashboard", label: "Dashboard", icon: BarChart3 }, { id: "ventas", label: "Ventas", icon: ShoppingCart }, { id: "inventario", label: "Inventario", icon: Package }, { id: "clientes", label: "Clientes", icon: Users }, { id: "compras", label: "Compras", icon: Truck }, { id: "reportes", label: "Reportes", icon: FileText }];
+const NAV = [{ id: "dashboard", label: "Dashboard", icon: BarChart3 }, { id: "ventas", label: "Ventas", icon: ShoppingCart }, { id: "inventario", label: "Inventario", icon: Package }, { id: "clientes", label: "Clientes", icon: Users }, { id: "compras", label: "Egresos", icon: Truck }, { id: "reportes", label: "Reportes", icon: FileText }];
 
 export default function App() {
   const [auth, setAuth] = useState(false); const [page, setPage] = useState("dashboard"); const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -565,8 +691,8 @@ export default function App() {
           {page === "ventas" && <VentasModule ventas={ventas} setVentas={setVentas} productos={productos} setProductos={setProductos} clientes={clientes} setClientes={setClientes} kardex={kardex} setKardex={setKardex} />}
           {page === "inventario" && <InventarioModule productos={productos} setProductos={setProductos} kardex={kardex} setKardex={setKardex} />}
           {page === "clientes" && <ClientesModule clientes={clientes} setClientes={setClientes} ventas={ventas} />}
-          {page === "compras" && <ComprasModule compras={compras} setCompras={setCompras} />}
-          {page === "reportes" && <ReportesModule ventas={ventas} productos={productos} clientes={clientes} />}
+          {page === "compras" && <ComprasModule compras={compras} setCompras={setCompras} productos={productos} setProductos={setProductos} kardex={kardex} setKardex={setKardex} />}
+          {page === "reportes" && <ReportesModule ventas={ventas} productos={productos} clientes={clientes} compras={compras} />}
         </div>
       </main>
     </div>
