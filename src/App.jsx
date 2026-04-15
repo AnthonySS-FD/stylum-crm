@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area } from "recharts";
-import { Package, ShoppingCart, Users, TrendingUp, AlertTriangle, Plus, Search, ChevronDown, ChevronRight, LogOut, Menu, X, Eye, Edit2, Trash2, ArrowUpRight, ArrowDownRight, DollarSign, UserPlus, ClipboardList, BarChart3, Hash, Phone, MapPin, Calendar, Truck, FileText, Send, Calculator, Save, ExternalLink, Copy, Check, Zap, Target, Tag, Cloud, CloudOff, Wifi, WifiOff, RefreshCw } from "lucide-react";
+import { Package, ShoppingCart, Users, TrendingUp, AlertTriangle, Plus, Search, ChevronDown, ChevronRight, LogOut, Menu, X, Eye, Edit2, Trash2, ArrowUpRight, ArrowDownRight, DollarSign, UserPlus, ClipboardList, BarChart3, Hash, Phone, MapPin, Calendar, Clock, Truck, FileText, Send, Calculator, Save, ExternalLink, Copy, Check, Zap, Target, Tag, Cloud, CloudOff, Wifi, WifiOff, RefreshCw } from "lucide-react";
 import { useCloudState } from "./useCloudState";
 
 // ═══════════════════════════════════════════════
@@ -51,6 +51,12 @@ const formatDateTime = (d) => new Date(d).toLocaleDateString("es-PE", { day: "2-
 const today = new Date();
 const isSameDay = (d1, d2) => new Date(d1).toDateString() === new Date(d2).toDateString();
 const withinDays = (d, n) => (today - new Date(d)) / 86400000 <= n;
+const MESES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+const inMonth = (fecha, year, month) => { const d = new Date(fecha); return d.getFullYear() === year && d.getMonth() === month; };
+const getAvailableYears = (ventas, compras) => {
+  const all = [...ventas.map(v => new Date(v.fecha).getFullYear()), ...compras.map(c => new Date(c.fecha).getFullYear()), today.getFullYear()];
+  return [...new Set(all)].sort((a, b) => b - a);
+};
 
 const DEFAULT_PRODUCTOS = [
   { id: "p1", nombre: "BOXYFIT Stylum Green", categoria: "BOXYFIT", precio: 50, costo: 18, sku: "STY-BF-GREEN", imagen: "💚", variantes: [{ talla: "S", color: "Verde Botella", stock: 0 }, { talla: "M", color: "Verde Botella", stock: 0 }, { talla: "L", color: "Verde Botella", stock: 0 }] },
@@ -237,36 +243,57 @@ const BoletaModal = ({ venta, onClose }) => {
 // DASHBOARD
 // ═══════════════════════════════════════════════
 const Dashboard = ({ ventas, productos, clientes, compras }) => {
-  const vh = ventas.filter(v => isSameDay(v.fecha, today) && ESTADOS_COBRADOS.includes(v.estado));
-  const vs = ventas.filter(v => withinDays(v.fecha, 7) && ESTADOS_COBRADOS.includes(v.estado));
-  const vm = ventas.filter(v => withinDays(v.fecha, 30) && ESTADOS_COBRADOS.includes(v.estado));
-  const vPendientes = ventas.filter(v => v.estado === "Pendiente");
-  const ih = vh.reduce((s, v) => s + v.total, 0);
-  const is_ = vs.reduce((s, v) => s + v.total, 0);
+  const [selYear, setSelYear] = useState(today.getFullYear());
+  const [selMonth, setSelMonth] = useState(today.getMonth());
+  const years = getAvailableYears(ventas, compras);
+
+  // Datos del mes seleccionado
+  const vm = ventas.filter(v => inMonth(v.fecha, selYear, selMonth) && ESTADOS_COBRADOS.includes(v.estado));
+  const vmAll = ventas.filter(v => inMonth(v.fecha, selYear, selMonth));
+  const vPend = ventas.filter(v => inMonth(v.fecha, selYear, selMonth) && v.estado === "Pendiente");
   const im = vm.reduce((s, v) => s + v.total, 0);
-  const pendienteTotal = vPendientes.reduce((s, v) => s + v.total, 0);
+  const pendienteTotal = vPend.reduce((s, v) => s + v.total, 0);
+  
+  // Hoy
+  const vh = ventas.filter(v => isSameDay(v.fecha, today) && ESTADOS_COBRADOS.includes(v.estado));
+  const ih = vh.reduce((s, v) => s + v.total, 0);
+  
   const ts = productos.reduce((s, p) => s + p.variantes.reduce((ss, v) => ss + v.stock, 0), 0);
   const sc = []; const sn = [];
   productos.forEach(p => p.variantes.forEach(v => { if (v.stock === 0) sn.push({ ...v, producto: p.nombre }); else if (v.stock <= 3) sc.push({ ...v, producto: p.nombre }); }));
   const noData = ventas.length === 0;
   
-  // Egresos reales del mes (compras + gastos)
-  const egresosMes = compras.filter(c => withinDays(c.fecha, 30)).reduce((s, c) => s + c.costoTotal, 0);
+  const egresosMes = compras.filter(c => inMonth(c.fecha, selYear, selMonth)).reduce((s, c) => s + c.costoTotal, 0);
   const gananciaReal = im - egresosMes;
 
-  const vpd = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(today.getTime() - (6 - i) * 86400000);
-    const dv = ventas.filter(v => isSameDay(v.fecha, d) && ESTADOS_COBRADOS.includes(v.estado));
-    return { dia: d.toLocaleDateString("es-PE", { weekday: "short" }), ingresos: dv.reduce((s, v) => s + v.total, 0) };
-  });
+  // Datos por día del mes seleccionado
+  const daysInMonth = new Date(selYear, selMonth + 1, 0).getDate();
+  const vpd = useMemo(() => {
+    const weeks = {};
+    for (let d = 1; d <= daysInMonth; d++) {
+      const date = new Date(selYear, selMonth, d);
+      const weekLabel = `Sem ${Math.ceil(d / 7)}`;
+      if (!weeks[weekLabel]) weeks[weekLabel] = 0;
+      const dayVentas = ventas.filter(v => isSameDay(v.fecha, date) && ESTADOS_COBRADOS.includes(v.estado));
+      weeks[weekLabel] += dayVentas.reduce((s, v) => s + v.total, 0);
+    }
+    return Object.entries(weeks).map(([dia, ingresos]) => ({ dia, ingresos }));
+  }, [ventas, selYear, selMonth]);
 
-  const pmv = useMemo(() => { const m = {}; ventas.filter(v => !["Cancelado"].includes(v.estado)).forEach(v => v.items.forEach(it => { m[it.nombre] = (m[it.nombre] || 0) + it.cantidad; })); return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, value]) => ({ name: name.length > 22 ? name.slice(0, 22) + "…" : name, value })); }, [ventas]);
-  const vpm = useMemo(() => { const m = {}; ventas.filter(v => ESTADOS_COBRADOS.includes(v.estado)).forEach(v => { m[v.metodoPago] = (m[v.metodoPago] || 0) + 1; }); return Object.entries(m).map(([name, value]) => ({ name, value })); }, [ventas]);
+  const pmv = useMemo(() => { const m = {}; vmAll.filter(v => v.estado !== "Cancelado").forEach(v => v.items.forEach(it => { m[it.nombre] = (m[it.nombre] || 0) + it.cantidad; })); return Object.entries(m).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([name, value]) => ({ name: name.length > 22 ? name.slice(0, 22) + "…" : name, value })); }, [vmAll]);
+  const vpm = useMemo(() => { const m = {}; vm.forEach(v => { m[v.metodoPago] = (m[v.metodoPago] || 0) + 1; }); return Object.entries(m).map(([name, value]) => ({ name, value })); }, [vm]);
   const CC = ["#fff", "#a0a0a0", "#606060", "#404040"];
+  const isCurrentMonth = selYear === today.getFullYear() && selMonth === today.getMonth();
 
   return (
     <div className="space-y-6">
-      <div><h2 className="text-2xl font-light tracking-tight text-white">Dashboard</h2><p className="text-xs text-neutral-500 mt-1 uppercase tracking-widest">{today.toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p></div>
+      <div className="flex flex-col sm:flex-row items-end justify-between gap-3">
+        <div><h2 className="text-2xl font-light tracking-tight text-white">Dashboard</h2><p className="text-xs text-neutral-500 mt-1 uppercase tracking-widest">{today.toLocaleDateString("es-PE", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</p></div>
+        <div className="flex gap-2">
+          <select value={selMonth} onChange={e => setSelMonth(parseInt(e.target.value))} className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-white uppercase tracking-widest appearance-none">{MESES.map((m, i) => <option key={i} value={i}>{m}</option>)}</select>
+          <select value={selYear} onChange={e => setSelYear(parseInt(e.target.value))} className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-white tracking-widest appearance-none">{years.map(y => <option key={y} value={y}>{y}</option>)}</select>
+        </div>
+      </div>
 
       {noData && <div className="bg-neutral-900 border border-dashed border-neutral-700 rounded-xl p-6 flex items-start gap-4"><div className="w-10 h-10 rounded-xl bg-neutral-800 flex items-center justify-center flex-shrink-0"><Zap size={20} className="text-amber-400" /></div><div><p className="text-sm text-white font-medium mb-1">¡Bienvenido a STYLUM CRM!</p><p className="text-xs text-neutral-400 leading-relaxed">Tu sistema está listo. Empieza registrando tu <strong>stock actual</strong> en Inventario. Tus datos se sincronizan en la nube automáticamente. 🔥</p></div></div>}
 
@@ -276,16 +303,17 @@ const Dashboard = ({ ventas, productos, clientes, compras }) => {
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard icon={DollarSign} label="Ventas Hoy" value={formatCurrency(ih)} sub={`${vh.length} órdenes`} />
-        <StatCard icon={TrendingUp} label="Semana" value={formatCurrency(is_)} sub={`${vs.length} órdenes`} />
+        {isCurrentMonth && <StatCard icon={DollarSign} label="Hoy" value={formatCurrency(ih)} sub={`${vh.length} ventas cobradas`} />}
+        <StatCard icon={TrendingUp} label={`${MESES[selMonth]} ${selYear}`} value={formatCurrency(im)} sub={`${vm.length} ventas cobradas`} />
+        <StatCard icon={Clock} label="Pendientes" value={formatCurrency(pendienteTotal)} sub={`${vPend.length} por cobrar`} />
         <StatCard icon={Package} label="Stock Total" value={ts} sub={`${sc.length} bajo stock`} />
-        <StatCard icon={Users} label="Clientes" value={clientes.length} sub={`${clientes.filter(c => c.tipo === "Frecuente" || c.tipo === "VIP").length} recurrentes`} />
+        {!isCurrentMonth && <StatCard icon={Users} label="Clientes" value={clientes.length} />}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
         <div className="lg:col-span-2 bg-neutral-900 border border-neutral-800 rounded-xl p-5">
-          <div className="flex items-center justify-between mb-4"><h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest">Ingresos — 7 días</h3><span className="text-lg font-light text-white">{formatCurrency(is_)}</span></div>
-          {noData ? <div className="flex items-center justify-center h-48 text-neutral-600 text-xs uppercase tracking-widest">Registra tu primera venta</div> :
+          <div className="flex items-center justify-between mb-4"><h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest">Ingresos — {MESES[selMonth]}</h3><span className="text-lg font-light text-white">{formatCurrency(im)}</span></div>
+          {vm.length === 0 ? <div className="flex items-center justify-center h-48 text-neutral-600 text-xs uppercase tracking-widest">Sin ventas este mes</div> :
           <ResponsiveContainer width="100%" height={220}><AreaChart data={vpd}><defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stopColor="#fff" stopOpacity={0.15} /><stop offset="100%" stopColor="#fff" stopOpacity={0} /></linearGradient></defs><CartesianGrid strokeDasharray="3 3" stroke="#262626" /><XAxis dataKey="dia" tick={{ fill: "#666", fontSize: 11 }} axisLine={false} tickLine={false} /><YAxis tick={{ fill: "#666", fontSize: 11 }} axisLine={false} tickLine={false} tickFormatter={v => `S/${v}`} /><Tooltip contentStyle={{ background: "#171717", border: "1px solid #333", borderRadius: 8, fontSize: 12 }} formatter={v => [formatCurrency(v), "Ingresos"]} /><Area type="monotone" dataKey="ingresos" stroke="#fff" strokeWidth={2} fill="url(#g)" /></AreaChart></ResponsiveContainer>}
         </div>
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
@@ -296,12 +324,12 @@ const Dashboard = ({ ventas, productos, clientes, compras }) => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
-          <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4">Más Vendidos</h3>
-          {pmv.length === 0 ? <div className="py-8 text-center text-xs text-neutral-600">Sin ventas aún</div> :
+          <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4">Más Vendidos — {MESES[selMonth]}</h3>
+          {pmv.length === 0 ? <div className="py-8 text-center text-xs text-neutral-600">Sin ventas este mes</div> :
           <ResponsiveContainer width="100%" height={180}><BarChart data={pmv} layout="vertical" margin={{ left: 10 }}><CartesianGrid strokeDasharray="3 3" stroke="#262626" horizontal={false} /><XAxis type="number" tick={{ fill: "#666", fontSize: 11 }} axisLine={false} tickLine={false} /><YAxis type="category" dataKey="name" tick={{ fill: "#999", fontSize: 10 }} axisLine={false} tickLine={false} width={140} /><Tooltip contentStyle={{ background: "#171717", border: "1px solid #333", borderRadius: 8, fontSize: 12 }} /><Bar dataKey="value" fill="#fff" radius={[0, 4, 4, 0]} barSize={14} /></BarChart></ResponsiveContainer>}
         </div>
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
-          <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4">Resumen Mes</h3>
+          <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4">Resumen {MESES[selMonth]} {selYear}</h3>
           <div className="space-y-3">
             {[["Ingresos cobrados", formatCurrency(im), "text-white"], ["Pendientes de cobro", formatCurrency(pendienteTotal), "text-amber-400"], ["Egresos del mes", `- ${formatCurrency(egresosMes)}`, "text-red-400"], ["Utilidad real", formatCurrency(gananciaReal), gananciaReal >= 0 ? "text-emerald-400" : "text-red-400"]].map(([l, v, c]) => (
               <div key={l} className="flex items-center justify-between py-2.5 border-b border-neutral-800 last:border-0"><span className="text-sm text-neutral-500">{l}</span><span className={`text-sm font-medium ${c}`}>{v}</span></div>
@@ -544,7 +572,10 @@ const ComprasModule = ({ compras, setCompras, productos, setProductos, kardex, s
             </div>
           </div>
           {c.tipo === "producto" && c.estado === "En tránsito" && <p className="text-xs text-sky-400/70 mt-2 pt-2 border-t border-neutral-800">Haz clic en "En tránsito" para marcar como recibido y actualizar stock</p>}
-          {c.notas && <p className="text-xs text-neutral-600 mt-2 pt-2 border-t border-neutral-800">{c.notas}</p>}
+          <div className="flex items-center justify-between mt-2 pt-2 border-t border-neutral-800">
+            {c.notas ? <p className="text-xs text-neutral-600 flex-1">{c.notas}</p> : <span />}
+            <button onClick={() => { if(confirm(`¿Eliminar este egreso de ${formatCurrency(c.costoTotal)}?`)) { setCompras(p => p.filter(x => x.id !== c.id)); setToast("Egreso eliminado"); } }} className="p-1.5 text-neutral-600 hover:text-red-400 transition-colors flex-shrink-0" title="Eliminar"><Trash2 size={13} /></button>
+          </div>
         </div>
       ))}</div>}
 
@@ -583,33 +614,41 @@ const ComprasModule = ({ compras, setCompras, productos, setProductos, kardex, s
 // REPORTES
 // ═══════════════════════════════════════════════
 const ReportesModule = ({ ventas, productos, clientes, compras }) => {
-  const [periodo, setPeriodo] = useState("mes");
-  const dias = periodo === "hoy" ? 1 : periodo === "semana" ? 7 : 30;
-  const vf = ventas.filter(v => withinDays(v.fecha, dias) && ESTADOS_COBRADOS.includes(v.estado));
-  const vfAll = ventas.filter(v => withinDays(v.fecha, dias) && v.estado !== "Cancelado");
-  const vPend = ventas.filter(v => withinDays(v.fecha, dias) && v.estado === "Pendiente");
+  const [selYear, setSelYear] = useState(today.getFullYear());
+  const [selMonth, setSelMonth] = useState(today.getMonth());
+  const years = getAvailableYears(ventas, compras);
+  
+  const vf = ventas.filter(v => inMonth(v.fecha, selYear, selMonth) && ESTADOS_COBRADOS.includes(v.estado));
+  const vfAll = ventas.filter(v => inMonth(v.fecha, selYear, selMonth) && v.estado !== "Cancelado");
+  const vPend = ventas.filter(v => inMonth(v.fecha, selYear, selMonth) && v.estado === "Pendiente");
   const ing = vf.reduce((s, v) => s + v.total, 0);
   const pendiente = vPend.reduce((s, v) => s + v.total, 0);
-  const egresos = compras.filter(c => withinDays(c.fecha, dias)).reduce((s, c) => s + c.costoTotal, 0);
-  const egresosProducto = compras.filter(c => withinDays(c.fecha, dias) && c.tipo === "producto").reduce((s, c) => s + c.costoTotal, 0);
-  const egresosGasto = compras.filter(c => withinDays(c.fecha, dias) && c.tipo === "gasto").reduce((s, c) => s + c.costoTotal, 0);
+  const comprasMes = compras.filter(c => inMonth(c.fecha, selYear, selMonth));
+  const egresos = comprasMes.reduce((s, c) => s + c.costoTotal, 0);
+  const egresosProducto = comprasMes.filter(c => c.tipo === "producto").reduce((s, c) => s + c.costoTotal, 0);
+  const egresosGasto = comprasMes.filter(c => c.tipo === "gasto" || !c.tipo).reduce((s, c) => s + c.costoTotal, 0);
   const utilidad = ing - egresos;
   const pp = useMemo(() => { const m = {}; vfAll.forEach(v => v.items.forEach(it => { if (!m[it.nombre]) m[it.nombre] = { nombre: it.nombre, cantidad: 0, ingresos: 0 }; m[it.nombre].cantidad += it.cantidad; m[it.nombre].ingresos += it.precio * it.cantidad; })); return Object.values(m).sort((a, b) => b.ingresos - a.ingresos); }, [vfAll]);
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3"><div><h2 className="text-2xl font-light tracking-tight text-white">Reportes</h2></div><div className="flex gap-2">{[{v:"hoy",l:"Hoy"},{v:"semana",l:"Semana"},{v:"mes",l:"Mes"}].map(p=><button key={p.v} onClick={()=>setPeriodo(p.v)} className={`px-4 py-2 text-xs uppercase tracking-widest rounded-lg transition-all ${periodo===p.v?"bg-white text-black":"bg-neutral-800 text-neutral-400"}`}>{p.l}</button>)}</div></div>
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div><h2 className="text-2xl font-light tracking-tight text-white">Reportes</h2><p className="text-xs text-neutral-500 mt-1 uppercase tracking-widest">{MESES[selMonth]} {selYear}</p></div>
+        <div className="flex gap-2">
+          <select value={selMonth} onChange={e => setSelMonth(parseInt(e.target.value))} className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-white uppercase tracking-widest appearance-none">{MESES.map((m, i) => <option key={i} value={i}>{m}</option>)}</select>
+          <select value={selYear} onChange={e => setSelYear(parseInt(e.target.value))} className="bg-neutral-900 border border-neutral-800 rounded-lg px-3 py-2 text-xs text-white tracking-widest appearance-none">{years.map(y => <option key={y} value={y}>{y}</option>)}</select>
+        </div>
+      </div>
       
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard icon={DollarSign} label="Ingresos Cobrados" value={formatCurrency(ing)} sub={`${vf.length} ventas cobradas`} />
+        <StatCard icon={DollarSign} label="Ingresos Cobrados" value={formatCurrency(ing)} sub={`${vf.length} ventas`} />
         <StatCard icon={Clock} label="Pendientes" value={formatCurrency(pendiente)} sub={`${vPend.length} por cobrar`} />
         <StatCard icon={ArrowDownRight} label="Egresos" value={formatCurrency(egresos)} sub={`Prod: ${formatCurrency(egresosProducto)} · Op: ${formatCurrency(egresosGasto)}`} />
         <StatCard icon={TrendingUp} label="Utilidad Real" value={formatCurrency(utilidad)} sub={ing > 0 ? `Margen: ${(utilidad/ing*100).toFixed(0)}%` : "—"} />
       </div>
 
-      {/* Desglose financiero */}
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5">
-        <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4">Estado de Resultados</h3>
+        <h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4">Estado de Resultados — {MESES[selMonth]} {selYear}</h3>
         <div className="space-y-2">
           {[
             ["Ingresos cobrados", formatCurrency(ing), "text-white", true],
@@ -628,7 +667,7 @@ const ReportesModule = ({ ventas, productos, clientes, compras }) => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5"><h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4">Por Producto</h3>{pp.length===0?<div className="py-12 text-center text-xs text-neutral-600">Sin datos</div>:<div className="space-y-3">{pp.map((p,i)=><div key={i}><div className="flex items-center justify-between text-sm mb-1"><span className="text-neutral-300">{p.nombre}</span><span className="text-white">{formatCurrency(p.ingresos)} <span className="text-neutral-600">({p.cantidad})</span></span></div><div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden"><div className="h-full bg-white rounded-full" style={{width:`${(p.ingresos/(pp[0]?.ingresos||1))*100}%`}}/></div></div>)}</div>}</div>
+        <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5"><h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4">Por Producto</h3>{pp.length===0?<div className="py-12 text-center text-xs text-neutral-600">Sin datos en {MESES[selMonth]}</div>:<div className="space-y-3">{pp.map((p,i)=><div key={i}><div className="flex items-center justify-between text-sm mb-1"><span className="text-neutral-300">{p.nombre}</span><span className="text-white">{formatCurrency(p.ingresos)} <span className="text-neutral-600">({p.cantidad})</span></span></div><div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden"><div className="h-full bg-white rounded-full" style={{width:`${(p.ingresos/(pp[0]?.ingresos||1))*100}%`}}/></div></div>)}</div>}</div>
         <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5"><h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4">Stock Actual</h3><div className="space-y-2">{productos.map(p=>{const ts=p.variantes.reduce((s,v)=>s+v.stock,0);return <div key={p.id} className="flex items-center justify-between bg-neutral-800 rounded-lg px-4 py-3"><div className="flex items-center gap-3"><span>{p.imagen}</span><div><p className="text-sm text-white">{p.nombre}</p><p className="text-xs text-neutral-500">{p.variantes.map(v=>`${v.talla}:${v.stock}`).join(" · ")}</p></div></div><p className={`text-sm font-medium ${ts===0?"text-red-400":ts<=5?"text-amber-400":"text-white"}`}>{ts}</p></div>;})}</div></div>
       </div>
       <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-5"><h3 className="text-sm font-medium text-neutral-400 uppercase tracking-widest mb-4">Márgenes por Producto</h3><div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="border-b border-neutral-800">{["Producto","Precio","Costo","Margen","%","Stock"].map(h=><th key={h} className="text-left px-4 py-2 text-xs text-neutral-500 uppercase tracking-widest font-medium">{h}</th>)}</tr></thead><tbody>{productos.map(p=>{const ts=p.variantes.reduce((s,v)=>s+v.stock,0);const mg=p.precio-p.costo;return <tr key={p.id} className="border-b border-neutral-800/50"><td className="px-4 py-2.5 text-white">{p.imagen} {p.nombre}</td><td className="px-4 py-2.5 text-white">{formatCurrency(p.precio)}</td><td className="px-4 py-2.5 text-neutral-400">{formatCurrency(p.costo)}</td><td className="px-4 py-2.5 text-emerald-400">{formatCurrency(mg)}</td><td className="px-4 py-2.5 text-emerald-400">{(mg/p.precio*100).toFixed(0)}%</td><td className="px-4 py-2.5 text-white">{ts}</td></tr>;})}</tbody></table></div></div>
